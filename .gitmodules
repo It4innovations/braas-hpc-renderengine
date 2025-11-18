@@ -1,0 +1,3 @@
+[submodule "submodules/braas-hpc-gpujpeg"]
+	path = submodules/braas-hpc-gpujpeg
+	url = https://github.com/It4innovations/braas-hpc-gpujpeg.git
