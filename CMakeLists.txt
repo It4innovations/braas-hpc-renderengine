@@ -21,7 +21,8 @@ project (braas_hpc_renderengine)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(WITH_CLIENT_GPUJPEG "Enable GPUJPEG" ON)
+option(WITH_CLIENT_GPUJPEG "Enable GPUJPEG" OFF)
+option(WITH_CLIENT_EPOXY "Enable EPOXY" OFF)
 
 find_package(CUDA REQUIRED)
 
@@ -35,11 +36,13 @@ endif()
 
 #find_package(OpenGL REQUIRED)
 
-set(EPOXY_INCLUDE_DIR "" CACHE PATH "")
-set(EPOXY_LIBRARIES "" CACHE FILEPATH "")
+if(WITH_CLIENT_EPOXY)
+    set(EPOXY_INCLUDE_DIR "" CACHE PATH "")
+    set(EPOXY_LIBRARIES "" CACHE FILEPATH "")
 
-if(NOT EPOXY_INCLUDE_DIR OR NOT EPOXY_LIBRARIES)
-    message(FATAL_ERROR "Epoxy library not configured. Please set EPOXY_INCLUDE_DIR and EPOXY_LIBRARIES cache variables.")
+    if(NOT EPOXY_INCLUDE_DIR OR NOT EPOXY_LIBRARIES)
+        message(FATAL_ERROR "Epoxy library not configured. Please set EPOXY_INCLUDE_DIR and EPOXY_LIBRARIES cache variables.")
+    endif()
 endif()
 
 #####################################################################################################################

@@ -22,9 +22,13 @@
 //#ifdef _WIN32
 //#	include <glad/glad.h>
 //#endif
-#include <epoxy/gl.h>
+#ifdef WITH_CLIENT_EPOXY
+#	include <epoxy/gl.h>
+#	include <cuda_gl_interop.h>
+#else
+#	include <cuda_runtime.h>
+#endif
 
-#include <cuda_gl_interop.h>
 #include "renderengine_tcp.h"
 
 #if _WIN32
@@ -67,8 +71,11 @@ TcpConnection tcpConnection;
 unsigned char* g_pixels_buf = NULL;
 void* g_pixels_buf_d = NULL;
 void* g_pixels_buf_recv_d = NULL;
+
+#ifdef WITH_CLIENT_EPOXY
 GLuint g_bufferId;   // ID of PBO
 GLuint g_textureId;  // ID of texture
+#endif
 
 renderengine_data g_renderengine_data;
 BRaaSHPCDataState g_hs_data_state;
@@ -170,6 +177,7 @@ void cuda_set_device()
 
 void setup_texture()
 {
+#ifdef WITH_CLIENT_EPOXY
 	GLuint pboIds[1];      // IDs of PBO
 	GLuint textureIds[1];  // ID of texture
 
@@ -232,21 +240,28 @@ void setup_texture()
 	cuda_set_device();
 	cuda_assert(cudaGLRegisterBufferObject(g_bufferId));
 	//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
+#endif
 	cuda_assert(cudaMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
 }
 
 void free_texture()
 {
 	cuda_set_device();
+
+#ifdef WITH_CLIENT_EPOXY
 	//cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
 	cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
+#endif
 
 	cuda_assert(cudaFree(g_pixels_buf_recv_d));
 
+#ifdef WITH_CLIENT_EPOXY
 	glDeleteFramebuffers(1, &g_bufferId);
 	glDeleteTextures(1, &g_textureId);
+#endif
 }
 
+#ifdef WITH_CLIENT_EPOXY
 void to_ortho()
 {
 	// set viewport to be the entire window
@@ -266,153 +281,6 @@ void to_ortho()
 	glLoadIdentity();
 }
 
-#if 0
-void draw_texture()
-{
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	// bind the texture and PBO
-	glBindTexture(GL_TEXTURE_2D, g_textureId);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
-
-	// copy pixels from PBO to texture object
-	// use offset instead of pointer.
-	glTexSubImage2D(GL_TEXTURE_2D,
-		0,
-		0,
-		0,
-		g_renderengine_data.width,
-		g_renderengine_data.height,
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		0);
-
-	//// draw
-	//to_ortho();
-	//
-
- // // draw a point with texture
-	//glBindTexture(GL_TEXTURE_2D, g_textureId);
-	//glBegin(GL_QUADS);
-
-	//glTexCoord2d(0.0, 0.0);
-	//glVertex2d(0.0, 0.0);
-	//glTexCoord2d(1.0, 0.0);
-	//glVertex2d(1, 0.0);
-	//glTexCoord2d(1.0, 1.0);
-	//glVertex2d(1, 1);
-	//glTexCoord2d(0.0, 1.0);
-	//glVertex2d(0.0, 1);
-
-	//glEnd();	
-
-	//// unbind texture
-	//glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-	//glBindTexture(GL_TEXTURE_2D, 0);
-
-	int x = 0;
-	int y = 0;
-	int width = g_renderengine_data.width;
-	int height = g_renderengine_data.height;
-
-	//def _draw_texture(texture_id, x, y, width, height) :
-
-	//	# Getting shader program
-	//	shader_program = bgl.Buffer(bgl.GL_INT, 1)
-	//	bgl.glGetIntegerv(bgl.GL_CURRENT_PROGRAM, shader_program)
-	GLint shaderProgram[1];
-	glGetIntegerv(GL_CURRENT_PROGRAM, shaderProgram);
-
-	//	# Generate vertex array
-	//	vertex_array = bgl.Buffer(bgl.GL_INT, 1)
-	//	bgl.glGenVertexArrays(1, vertex_array)
-	GLuint vertexArray[1];
-	glGenVertexArrays(1, vertexArray);
-
-	//	texturecoord_location = bgl.glGetAttribLocation(
-	//		shader_program[0], "texCoord")
-	//	position_location = bgl.glGetAttribLocation(shader_program[0], "pos")
-
-	GLint textureCoordLocation = glGetAttribLocation(shaderProgram[0], "texCoord");
-	GLint positionLocation = glGetAttribLocation(shaderProgram[0], "pos");
-
-	//# Generate geometry buffers for drawing textured quad
-	//	position = [x, y, x + width, y, x + width, y + height, x, y + height]
-	//	position = bgl.Buffer(bgl.GL_FLOAT, len(position), position)
-	//	texcoord = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0]
-	//	texcoord = bgl.Buffer(bgl.GL_FLOAT, len(texcoord), texcoord)
-
-	float positions[8] = { x, y, x + width, y, x + width, y + height, x, y + height };
-	float texCoords[8] = { 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f };
-
-	//	vertex_buffer = bgl.Buffer(bgl.GL_INT, 2)
-	//	bgl.glGenBuffers(2, vertex_buffer)
-	GLuint vertex_buffer[2];
-	glGenBuffers(2, vertex_buffer);
-	//	bgl.glBindBuffer(bgl.GL_ARRAY_BUFFER, vertex_buffer[0])
-	//	bgl.glBufferData(bgl.GL_ARRAY_BUFFER, 32, position, bgl.GL_STATIC_DRAW)
-
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer[0]);
-	glBufferData(GL_ARRAY_BUFFER, 32, positions, GL_STATIC_DRAW);
-
-	//	bgl.glBindBuffer(bgl.GL_ARRAY_BUFFER, vertex_buffer[1])
-	//	bgl.glBufferData(bgl.GL_ARRAY_BUFFER, 32, texcoord, bgl.GL_STATIC_DRAW)
-
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer[1]);
-	glBufferData(GL_ARRAY_BUFFER, 32, texCoords, GL_STATIC_DRAW);
-
-	//	bgl.glBindBuffer(bgl.GL_ARRAY_BUFFER, 0)
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	//	# DRAWING
-	//	bgl.glActiveTexture(bgl.GL_TEXTURE0)
-	glActiveTexture(GL_TEXTURE0);
-	//	bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture_id)	
-	glBindTexture(GL_TEXTURE_2D, g_textureId);
-
-	//	bgl.glBindVertexArray(vertex_array[0])
-	glBindVertexArray(vertexArray[0]);
-
-	//	bgl.glEnableVertexAttribArray(texturecoord_location)
-	glEnableVertexAttribArray(textureCoordLocation);
-
-	//	bgl.glEnableVertexAttribArray(position_location)
-	glEnableVertexAttribArray(positionLocation);
-
-	//	bgl.glBindBuffer(bgl.GL_ARRAY_BUFFER, vertex_buffer[0])
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer[0]);
-	//	bgl.glVertexAttribPointer(
-	//		position_location, 2, bgl.GL_FLOAT, bgl.GL_FALSE, 0, None)
-	glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-	//	bgl.glBindBuffer(bgl.GL_ARRAY_BUFFER, vertex_buffer[1])
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer[1]);
-	//	bgl.glVertexAttribPointer(
-	//		texturecoord_location, 2, bgl.GL_FLOAT, bgl.GL_FALSE, 0, None)
-	glVertexAttribPointer(textureCoordLocation, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-	//	bgl.glBindBuffer(bgl.GL_ARRAY_BUFFER, 0)
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	//	bgl.glDrawArrays(bgl.GL_TRIANGLE_FAN, 0, 4)
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-	//	bgl.glBindVertexArray(0)
-	glBindVertexArray(0);
-	//	bgl.glBindTexture(bgl.GL_TEXTURE_2D, 0)		
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glDisableVertexAttribArray(positionLocation);
-	glDisableVertexAttribArray(textureCoordLocation);
-
-	//	# DELETING
-	//	bgl.glDeleteBuffers(2, vertex_buffer)
-	//	bgl.glDeleteVertexArrays(1, vertex_array)
-
-	glDeleteBuffers(2, vertex_buffer);
-	glDeleteVertexArrays(1, vertexArray);
-}
-#else
 void draw_texture()
 {
 	cuda_set_device();
@@ -495,17 +363,12 @@ void resize(int width, int height)
 	//int* size = (int*)&g_renderengine_data.width;
 	//g_renderengine_data.width = width;
 	//g_renderengine_data.height = height;
-
 	setup_texture();
 }
 
 int recv_pixels_data()
 {  
 	cuda_set_device();
-
-	//if (g_renderengine_data.width != g_renderengine_data.width || g_renderengine_data.height != g_renderengine_data.height) {
-	//	resize(g_renderengine_data.width, g_renderengine_data.height);
-	//}
 
 #ifdef WITH_CLIENT_GPUJPEG
 	tcpConnection.recv_gpujpeg(
@@ -531,9 +394,44 @@ int recv_pixels_data()
 	return 0;
 }
 
+int send_pixels_data()
+{  
+	cuda_set_device();
+
+#ifdef WITH_CLIENT_GPUJPEG
+	tcpConnection.send_gpujpeg(
+		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, 1);
+#else
+	//cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
+	//	g_pixels_buf,
+	//	g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
+	//	cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+
+	tcpConnection.send_data_data((char*)g_pixels_buf,
+		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
+
+	//current_samples = ((int*)g_pixels_buf)[0];
+#endif
+
+	tcpConnection.recv_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
+
+#ifdef _WIN32
+	displayFPS(1, get_current_samples());
+#endif	
+
+	return 0;
+}
+
 int send_cam_data()
 {
 	tcpConnection.send_data_data((char*)&g_renderengine_data, sizeof(renderengine_data));
+
+	return 0;
+}
+
+int recv_cam_data()
+{
+	tcpConnection.recv_data_data((char*)&g_renderengine_data, sizeof(renderengine_data));
 
 	return 0;
 }
@@ -546,25 +444,16 @@ void reset()
 	tcpConnection.send_data_data((char*)&rd, sizeof(renderengine_data));
 }
 
-//void send_braas_hpc_renderengine_data_render(void* colorMap, int colorMapSize, void* domain, void* baseDensity)
 void send_braas_hpc_renderengine_data_render(const char* data, int size)
 {
-	//struct BRaaSHPCDataRender {
-	//	vec4f colorMap[128];
-	//	float domain[2];
-	//	float baseDensity;
-	//};
-	//BRaaSHPCDataRender braas_hpc_renderengineDataRender;
-
-	//memcpy(braas_hpc_renderengineDataRender.colorMap, (char*)colorMap, colorMapSize * sizeof(float) * 4);
-	//memcpy(braas_hpc_renderengineDataRender.domain, (char*)domain, sizeof(float) * 2);
-	//braas_hpc_renderengineDataRender.baseDensity = ((float*)baseDensity)[0];
-
-	//tcpConnection.send_data_data((char*)&braas_hpc_renderengineDataRender, sizeof(BRaaSHPCDataRender));
-	//int size = (data != nullptr) ? strlen(data) : 0;
 	tcpConnection.send_data_data((char*)&size, sizeof(int));
 	if(size > 0)
 		tcpConnection.send_data_data((char*)data, size);
+}
+
+void recv_braas_hpc_renderengine_data(const char* data, int size)
+{
+	tcpConnection.recv_data_data((char*)data, size);
 }
 
 //void braas_hpc_renderengine_init(const char* server,
@@ -658,6 +547,40 @@ void set_camera(void* view_martix,
 	g_renderengine_data.cam.view_perspective = view_perspective;
 }
 
+void get_camera(void* view_martix,
+	float* lens,
+	float* nearclip,
+	float* farclip,
+	float* sensor_width,
+	float* sensor_height,
+	int* sensor_fit,
+	float* view_camera_zoom,
+	float* view_camera_offset0,
+	float* view_camera_offset1,
+	int* use_view_camera,
+	float* shift_x,
+	float* shift_y,
+	int* view_perspective)
+{
+	memcpy(
+		(char*)view_martix, g_renderengine_data.cam.transform_inverse_view_matrix, sizeof(float) * 12);
+
+	*lens = g_renderengine_data.cam.lens;
+	*nearclip = g_renderengine_data.cam.clip_start;
+	*farclip = g_renderengine_data.cam.clip_end;
+
+	*sensor_width = g_renderengine_data.cam.sensor_width;
+	*sensor_height = g_renderengine_data.cam.sensor_height;
+	*sensor_fit = g_renderengine_data.cam.sensor_fit;
+	*view_camera_zoom = g_renderengine_data.cam.view_camera_zoom;
+	*view_camera_offset0 = g_renderengine_data.cam.view_camera_offset[0];
+	*view_camera_offset1 = g_renderengine_data.cam.view_camera_offset[1];
+	*use_view_camera = g_renderengine_data.cam.use_view_camera;
+	*shift_x = g_renderengine_data.cam.shift_x;
+	*shift_y = g_renderengine_data.cam.shift_y;
+	*view_perspective = g_renderengine_data.cam.view_perspective;
+}
+
 //int get_samples()
 //{
 //	int* samples = (int*)&g_renderengine_data.step_samples;
@@ -685,9 +608,29 @@ void get_pixels(void* pixels)
 	memcpy(pixels, (char*)g_pixels_buf, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
 }
 
+void set_pixels(void* pixels, bool device)
+{
+	size_t pix_type_size = PIX_SIZE * 4; // sizeof(char) * 4;
+
+	if (device) {
+	cuda_assert(cudaMemcpy(
+		g_pixels_buf_recv_d,
+		pixels,
+		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
+		cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+	}
+	else {
+		memcpy((char*)g_pixels_buf, pixels, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
+	}
+}
+
 int get_texture_id()
 {
+#ifdef WITH_CLIENT_EPOXY
 	return g_textureId;
+#else
+	return -1;
+#endif
 }
 
 int com_error() {

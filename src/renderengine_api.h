@@ -39,8 +39,13 @@ extern "C"
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_resolution(int width, int height);
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_frame(int frame);
 
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD get_pixels(void* pixels);
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_pixels(void* pixels, bool device);
+
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD recv_pixels_data();
+	
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD send_cam_data();
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD recv_cam_data();
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_timestep(int timestep);
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD client_init(const char *server, int port, int w, int h);
@@ -61,6 +66,21 @@ extern "C"
 														  float shift_y,
 														  int view_perspective);
 
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD get_camera(void* view_martix,
+		float* lens,
+		float* nearclip,
+		float* farclip,
+		float* sensor_width,
+		float* sensor_height,
+		int* sensor_fit,
+		float* view_camera_zoom,
+		float* view_camera_offset0,
+		float* view_camera_offset1,
+		int* use_view_camera,
+		float* shift_x,
+		float* shift_y,
+		int* view_perspective);
+
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD draw_texture();
 
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_current_samples();
@@ -71,6 +91,7 @@ extern "C"
 
 	//BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD send_braas_hpc_renderengine_data_render(void* colorMap, int colorMapSize, void* domain, void* baseDensity);
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  send_braas_hpc_renderengine_data_render(const char* data, int size);
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  recv_braas_hpc_renderengine_data(const char* data, int size);
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  get_braas_hpc_renderengine_range(
 		void* world_bounds_spatial_lower,

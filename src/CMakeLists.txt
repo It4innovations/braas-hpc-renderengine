@@ -19,6 +19,10 @@ if(WITH_CLIENT_GPUJPEG)
 	add_definitions(-DWITH_CLIENT_GPUJPEG)
 endif()
 
+if(WITH_CLIENT_EPOXY)
+    add_definitions(-DWITH_CLIENT_EPOXY)
+endif()
+
 set(INC
 	 .
      ${EPOXY_INCLUDE_DIR}
@@ -48,7 +52,6 @@ target_link_libraries(braas_hpc_renderengine
     ${CUDA_CUDA_LIBRARY} # For CUDA Driver API
     ${OPENGL_LIBRARIES}
     ${EPOXY_LIBRARIES}
-    ${EPOXY_LIB}
 )
 
 if(WITH_CLIENT_GPUJPEG)
