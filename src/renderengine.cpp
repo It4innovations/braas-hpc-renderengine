@@ -467,7 +467,18 @@ int send_cam_data()
 
 int recv_cam_data()
 {
+	int width_old = g_renderengine_data.width;
+	int height_old = g_renderengine_data.height;
+
 	tcpConnection.recv_data_data((char*)&g_renderengine_data, sizeof(renderengine_data));
+
+	int width = g_renderengine_data.width;
+	int height = g_renderengine_data.height;
+
+	g_renderengine_data.width = width_old;
+	g_renderengine_data.height = height_old;
+
+	resize(width, height);
 
 	return 0;
 }
