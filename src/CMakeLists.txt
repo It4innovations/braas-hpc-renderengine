@@ -31,7 +31,7 @@ if(TCP_PIX_SIZE_F32)
     add_definitions(-DTCP_PIX_SIZE_F32)
 endif()
 
-find_package(OPENMP REQUIRED)
+find_package(OpenMP REQUIRED)
 
 set(INC
 	 .
