@@ -250,7 +250,7 @@ void setup_texture()
 	//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 #endif
 	cuda_assert(cudaMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
-	printf("Setup texture %d x %d, Size: %lld\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
+	printf("Setup texture %d x %d, Pointer: %lld (Size: %lld)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 }
 
 void free_texture()
@@ -262,7 +262,8 @@ void free_texture()
 	cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
 #endif
 
-	cuda_assert(cudaFree(g_pixels_buf_recv_d));
+	printf("Free texture Pointer: %lld\n", (size_t)g_pixels_buf_recv_d);
+	cuda_assert(cudaFree(g_pixels_buf_recv_d));	
 
 #ifdef WITH_CLIENT_EPOXY
 	glDeleteFramebuffers(1, &g_bufferId);
@@ -667,11 +668,13 @@ void set_pixels(void* pixels, bool device)
 	size_t pix_type_size = PIX_SIZE * 4; // sizeof(char) * 4;
 
 	if (device) {
-	cuda_assert(cudaMemcpy(
-		g_pixels_buf_recv_d,
-		pixels,
-		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
-		cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+		printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4);
+
+		cuda_assert(cudaMemcpy(
+			g_pixels_buf_recv_d,
+			pixels,
+			(size_t)g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
+			cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 	}
 	else {
 		memcpy((char*)g_pixels_buf, pixels, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
