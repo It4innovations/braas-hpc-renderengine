@@ -694,7 +694,7 @@ void set_pixels(void* pixels, bool device)
 	size_t pix_type_size = PIX_SIZE * 4; // sizeof(char) * 4;
 
 	if (device) {
-		printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
+		//printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
 
 		cuda_assert(cudaMemcpy(
 			g_pixels_buf_recv_d,
