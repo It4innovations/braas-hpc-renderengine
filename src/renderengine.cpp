@@ -261,9 +261,9 @@ void free_texture()
 #endif
 }
 
-#ifdef WITH_CLIENT_EPOXY
 void to_ortho()
 {
+#ifdef WITH_CLIENT_EPOXY
 	// set viewport to be the entire window
 	glViewport(0, 0, (GLsizei)g_renderengine_data.width, (GLsizei)g_renderengine_data.height);
 
@@ -279,10 +279,12 @@ void to_ortho()
 	// switch to modelview matrix in order to set scene
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+#endif
 }
 
 void draw_texture()
 {
+#ifdef WITH_CLIENT_EPOXY
 	cuda_set_device();
 	cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 	cuda_assert(cudaMemcpy(g_pixels_buf_d, g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
@@ -328,8 +330,9 @@ void draw_texture()
 
 	//glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//glBindTexture(GL_TEXTURE_2D, 0);
-}
+
 #endif
+}
 //////////////////////////
 void set_frame(int frame)
 {
