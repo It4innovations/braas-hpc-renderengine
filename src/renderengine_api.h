@@ -103,9 +103,17 @@ extern "C"
 		void* world_bounds_spatial_upper,
 		void* scalars_range);
 
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  set_braas_hpc_renderengine_range(
+		void* world_bounds_spatial_lower,
+		void* world_bounds_spatial_upper,
+		void* scalars_range);
+
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_texture_id();
 
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD com_error();
+
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_width();
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_height();
 	
 
 #ifdef __cplusplus

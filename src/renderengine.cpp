@@ -449,7 +449,7 @@ int send_pixels_data()
 	//current_samples = ((int*)g_pixels_buf)[0];
 #endif
 
-	tcpConnection.recv_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
+	tcpConnection.send_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
 #ifdef _WIN32
 	displayFPS(1, get_current_samples());
@@ -518,6 +518,16 @@ void get_braas_hpc_renderengine_range(
 	memcpy((char*)world_bounds_spatial_lower, g_hs_data_state.world_bounds_spatial_lower, sizeof(float) * 3);
 	memcpy((char*)world_bounds_spatial_upper, g_hs_data_state.world_bounds_spatial_upper, sizeof(float) * 3);
 	memcpy((char*)scalars_range, g_hs_data_state.scalars_range, sizeof(float) * 2);
+}
+
+void set_braas_hpc_renderengine_range(
+	void* world_bounds_spatial_lower,
+	void* world_bounds_spatial_upper,
+	void* scalars_range)
+{
+	memcpy(g_hs_data_state.world_bounds_spatial_lower, (char*)world_bounds_spatial_lower, sizeof(float) * 3);
+	memcpy(g_hs_data_state.world_bounds_spatial_upper, (char*)world_bounds_spatial_upper, sizeof(float) * 3);
+	memcpy(g_hs_data_state.scalars_range, (char*)scalars_range, sizeof(float) * 2);
 }
 
 void set_timestep(int timestep)
@@ -708,3 +718,12 @@ int get_texture_id()
 int com_error() {
 	return tcpConnection.is_error();
 }
+
+int get_width() {
+	return g_renderengine_data.width;
+}
+
+int get_height() {
+	return g_renderengine_data.height;
+}
+
