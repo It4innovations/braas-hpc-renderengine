@@ -51,7 +51,10 @@ extern "C"
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_timestep(int timestep);
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD client_init(const char *server, int port, int w, int h);
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD server_init(const char* server, int port, int w, int h);
+
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD client_close_connection();
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD server_close_connection();
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_camera(void *view_martix,
 														  float lens,

@@ -509,7 +509,26 @@ void client_init(const char* server,
 	resize(w, h);
 }
 
+void server_init(const char* server,
+	int port,
+	int w,
+	int h)
+{
+	tcpConnection.init_sockets_data(server, port, true);
+
+	memset(&g_renderengine_data, 0, sizeof(renderengine_data));
+	memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
+
+	resize(w, h);
+}
+
 void client_close_connection()
+{
+	tcpConnection.client_close();
+	tcpConnection.server_close();
+}
+
+void server_close_connection()
 {
 	tcpConnection.client_close();
 	tcpConnection.server_close();
