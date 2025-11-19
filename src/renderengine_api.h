@@ -43,9 +43,11 @@ extern "C"
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_pixels(void* pixels, bool device);
 
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD recv_pixels_data();
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD send_pixels_data();
 	
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD send_cam_data();
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD recv_cam_data();
+
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_timestep(int timestep);
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD client_init(const char *server, int port, int w, int h);
@@ -89,7 +91,6 @@ extern "C"
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD reset();
 
-	//BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD send_braas_hpc_renderengine_data_render(void* colorMap, int colorMapSize, void* domain, void* baseDensity);
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  send_braas_hpc_renderengine_data_render(const char* data, int size);
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  recv_braas_hpc_renderengine_data(const char* data, int size);
 
