@@ -106,7 +106,10 @@ extern "C"
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD  set_braas_hpc_renderengine_range(
 		void* world_bounds_spatial_lower,
 		void* world_bounds_spatial_upper,
-		void* scalars_range);
+		void* scalars_range,
+		int samples,
+		float fps
+		);
 
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_texture_id();
 

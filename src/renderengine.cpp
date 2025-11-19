@@ -523,11 +523,16 @@ void get_braas_hpc_renderengine_range(
 void set_braas_hpc_renderengine_range(
 	void* world_bounds_spatial_lower,
 	void* world_bounds_spatial_upper,
-	void* scalars_range)
+	void* scalars_range,
+	int samples,
+	float fps
+	)
 {
 	memcpy(g_hs_data_state.world_bounds_spatial_lower, (char*)world_bounds_spatial_lower, sizeof(float) * 3);
 	memcpy(g_hs_data_state.world_bounds_spatial_upper, (char*)world_bounds_spatial_upper, sizeof(float) * 3);
 	memcpy(g_hs_data_state.scalars_range, (char*)scalars_range, sizeof(float) * 2);
+	g_hs_data_state.samples = samples;
+	g_hs_data_state.fps = fps;
 }
 
 void set_timestep(int timestep)
