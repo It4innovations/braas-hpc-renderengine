@@ -41,7 +41,7 @@ extern "C"
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD get_pixels(void* pixels);
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_pixels(void* pixels, bool device);
-	BRAAS_HPC_EXPORT_DLL size_t BRAAS_HPC_EXPORT_STD get_gpu_buffer();
+	BRAAS_HPC_EXPORT_DLL unsigned long long int BRAAS_HPC_EXPORT_STD get_gpu_buffer();
 
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD recv_pixels_data();
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD send_pixels_data();

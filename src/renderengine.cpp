@@ -692,8 +692,8 @@ void set_pixels(void* pixels, bool device)
 	}
 }
 
-size_t get_gpu_buffer() {
-	return (size_t)g_pixels_buf_recv_d;
+unsigned long long int get_gpu_buffer() {
+	return (unsigned long long int)g_pixels_buf_recv_d;
 }
 
 int get_texture_id()
