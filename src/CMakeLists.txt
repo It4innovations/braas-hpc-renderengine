@@ -31,6 +31,8 @@ if(TCP_PIX_SIZE_F32)
     add_definitions(-DTCP_PIX_SIZE_F32)
 endif()
 
+find_package(OPENMP REQUIRED)
+
 set(INC
 	 .
      ${EPOXY_INCLUDE_DIR}
@@ -60,6 +62,7 @@ target_link_libraries(braas_hpc_renderengine
     ${CUDA_CUDA_LIBRARY} # For CUDA Driver API
     ${OPENGL_LIBRARIES}
     ${EPOXY_LIBRARIES}
+    OpenMP::OpenMP_CXX
 )
 
 if(WITH_CLIENT_GPUJPEG)
