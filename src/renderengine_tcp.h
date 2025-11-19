@@ -47,7 +47,6 @@
 #endif
 
 #define TCP_OPTIMIZATION
-//#define TCP_FLOAT
 #define MAX_CONNECTIONS 100
 
 

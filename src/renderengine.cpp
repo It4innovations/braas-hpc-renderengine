@@ -41,10 +41,12 @@
 #include <stdlib.h>
 //#include <vector>
 
-#ifdef TCP_FLOAT
-#define PIX_SIZE sizeof(float)
-#else
-#define PIX_SIZE sizeof(unsigned short)
+#ifdef TCP_PIX_SIZE_F32
+#	define PIX_SIZE sizeof(float)
+#elif defined(TCP_PIX_SIZE_U16)
+#	define PIX_SIZE sizeof(unsigned short)
+#else //TCP_PIX_SIZE_U8
+#	define PIX_SIZE sizeof(unsigned char)
 #endif
 
 //////////////////////////
@@ -207,19 +209,25 @@ void setup_texture()
 
 	glTexImage2D(GL_TEXTURE_2D,
 		0,
-#ifdef TCP_FLOAT
+
+#ifdef TCP_PIX_SIZE_F32
 		GL_RGBA,
-#else
+#elif defined(TCP_PIX_SIZE_U16)
 		GL_RGBA16F,
+#else //TCP_PIX_SIZE_U8
+		GL_RGBA,
 #endif
+
 		g_renderengine_data.width,
 		g_renderengine_data.height,
 		0,
 		GL_RGBA,
-#ifdef TCP_FLOAT
+#ifdef TCP_PIX_SIZE_F32
 		GL_FLOAT,
-#else
-		GL_HALF_FLOAT, //GL_UNSIGNED_BYTE,
+#elif defined(TCP_PIX_SIZE_U16)
+		GL_HALF_FLOAT,
+#else //TCP_PIX_SIZE_U8
+		GL_UNSIGNED_BYTE,
 #endif
 		NULL);
 
@@ -242,6 +250,7 @@ void setup_texture()
 	//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 #endif
 	cuda_assert(cudaMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
+	printf("Setup texture %d x %d, Size: %lld\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 }
 
 void free_texture()
@@ -294,12 +303,17 @@ void draw_texture()
 	//download texture from pbo
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
 	glBindTexture(GL_TEXTURE_2D, g_textureId);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_renderengine_data.width, g_renderengine_data.height, GL_RGBA, 
-#ifdef TCP_FLOAT
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_renderengine_data.width, g_renderengine_data.height,
+		GL_RGBA, 
+
+#ifdef TCP_PIX_SIZE_F32
 		GL_FLOAT,
-#else
-		GL_HALF_FLOAT, //GL_UNSIGNED_BYTE,
+#elif defined(TCP_PIX_SIZE_U16)
+		GL_HALF_FLOAT,
+#else //TCP_PIX_SIZE_U8
+		GL_UNSIGNED_BYTE,
 #endif
+
 		NULL);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -374,8 +388,17 @@ int recv_pixels_data()
 	cuda_set_device();
 
 #ifdef WITH_CLIENT_GPUJPEG
+
+#ifdef TCP_PIX_SIZE_F32
+	int format = 2;
+#elif defined(TCP_PIX_SIZE_U16)
+	int format = 1;
+#else //TCP_PIX_SIZE_U8
+	int format = 0;
+#endif
+
 	tcpConnection.recv_gpujpeg(
-		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, 1);
+		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
 #else
 	tcpConnection.recv_data_data((char*)g_pixels_buf,
 		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
@@ -402,8 +425,17 @@ int send_pixels_data()
 	cuda_set_device();
 
 #ifdef WITH_CLIENT_GPUJPEG
+
+#ifdef TCP_PIX_SIZE_F32
+	int format = 2;
+#elif defined(TCP_PIX_SIZE_U16)
+	int format = 1;
+#else //TCP_PIX_SIZE_U8
+	int format = 0;
+#endif
+
 	tcpConnection.send_gpujpeg(
-		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, 1);
+		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
 #else
 	//cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
 	//	g_pixels_buf,
