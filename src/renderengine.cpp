@@ -691,6 +691,8 @@ void get_pixels(void* pixels)
 
 void set_pixels(void* pixels, bool device)
 {
+	cuda_set_device();
+
 	size_t pix_type_size = PIX_SIZE * 4; // sizeof(char) * 4;
 
 	if (device) {
@@ -703,7 +705,15 @@ void set_pixels(void* pixels, bool device)
 			cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 	}
 	else {
+#ifdef WITH_CLIENT_GPUJPEG
+		cuda_assert(cudaMemcpy(
+			g_pixels_buf_recv_d,
+			pixels,
+			(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
+			cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+#else
 		memcpy((char*)g_pixels_buf, pixels, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
+#endif
 	}
 }
 
