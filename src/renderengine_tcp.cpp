@@ -1047,6 +1047,20 @@ void TcpConnection::yuv_i420_to_rgb_half(
 }
 
 #ifdef WITH_CLIENT_GPUJPEG
+
+//#define gpujpeg_decoder_output_set_custom_cuda
+#include <cuda_runtime.h>
+
+bool is_device_ptr(const void* ptr) {
+	cudaPointerAttributes attr;
+	cudaError_t err = cudaPointerGetAttributes(&attr, ptr);
+
+	if (err != cudaSuccess)
+		return false;  // Not a recognized CUDA pointer
+
+	return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
+}
+
 int TcpConnection::gpujpeg_encode(int width,
 	int height,
 	int format,
@@ -1100,8 +1114,12 @@ int TcpConnection::gpujpeg_encode(int width,
 	}
 
 	struct gpujpeg_encoder_input encoder_input;
-	// gpujpeg_encoder_input_set_gpu_image(&encoder_input, input_image);
-	gpujpeg_encoder_input_set_image(&encoder_input, input_image);
+	if (is_device_ptr(input_image)) {
+		gpujpeg_encoder_input_set_gpu_image(&encoder_input, input_image);
+	}
+	else {
+		gpujpeg_encoder_input_set_image(&encoder_input, input_image);
+	}
 
 	// compress the image
 	if (gpujpeg_encoder_encode(g_encoder,
@@ -1151,15 +1169,22 @@ int TcpConnection::gpujpeg_decode(int width,
 	gpujpeg_decoder_output decoder_output;
 	// gpujpeg_decoder_output_set_default(&decoder_output);
 	// gpujpeg_decoder_output_set_custom(&decoder_output, input_image);
-#ifdef gpujpeg_decoder_output_set_custom_cuda	
-	gpujpeg_decoder_output_set_custom_cuda(&decoder_output, input_image);
-#endif
-
-#ifdef gpujpeg_decoder_output_set_custom_hip	
-	gpujpeg_decoder_output_set_custom_hip(&decoder_output, input_image);
-#endif
+//#ifdef gpujpeg_decoder_output_set_custom_cuda	
+//	gpujpeg_decoder_output_set_custom_cuda(&decoder_output, input_image);
+//#elif defined(gpujpeg_decoder_output_set_custom_hip)
+//	gpujpeg_decoder_output_set_custom_hip(&decoder_output, input_image);
+//#else
+	//gpujpeg_decoder_output_set_custom_cuda(&decoder_output, input_image);
+//#endif
 	// decoder_output.data = input_image;
 	// decoder_output.type = GPUJPEG_DECODER_OUTPUT_CUSTOM_BUFFER;
+
+	if (is_device_ptr(input_image)) {
+		gpujpeg_decoder_output_set_custom_cuda(&decoder_output, input_image);
+	}
+	else {
+		gpujpeg_decoder_output_set_custom(&decoder_output, input_image);
+	}
 
 	// decompress the image
 	uint8_t* image_decompressed = NULL;

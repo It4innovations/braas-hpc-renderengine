@@ -177,177 +177,194 @@ void cuda_set_device()
 	cuda_assert(cudaSetDevice(0));
 }
 
-void setup_texture()
+void setup_texture(bool use_gl)
 {
-#ifdef WITH_CLIENT_EPOXY
-	GLuint pboIds[1];      // IDs of PBO
-	GLuint textureIds[1];  // ID of texture
-
-	glGenTextures(1, textureIds);
-	g_textureId = textureIds[0];
-
-	glBindTexture(GL_TEXTURE_2D, g_textureId);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	//glTexImage2D(GL_TEXTURE_2D,
-	//	0,
-	//	GL_RGBA8,
-	//	g_renderengine_data.width,
-	//	g_renderengine_data.height,
-	//	0,
-	//	GL_RGBA,
-	//	GL_UNSIGNED_BYTE,
-	//	NULL);
-
-	glTexImage2D(GL_TEXTURE_2D,
-		0,
-
-#ifdef TCP_PIX_SIZE_F32
-		GL_RGBA,
-#elif defined(TCP_PIX_SIZE_U16)
-		GL_RGBA16F,
-#else //TCP_PIX_SIZE_U8
-		GL_RGBA,
-#endif
-
-		g_renderengine_data.width,
-		g_renderengine_data.height,
-		0,
-		GL_RGBA,
-#ifdef TCP_PIX_SIZE_F32
-		GL_FLOAT,
-#elif defined(TCP_PIX_SIZE_U16)
-		GL_HALF_FLOAT,
-#else //TCP_PIX_SIZE_U8
-		GL_UNSIGNED_BYTE,
-#endif
-		NULL);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glGenBuffers(1, pboIds);
-	g_bufferId = pboIds[0];
-
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
-
-	glBufferData(GL_PIXEL_UNPACK_BUFFER,
-		(size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
-		0,
-		GL_DYNAMIC_COPY);
-
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
 	cuda_set_device();
-	cuda_assert(cudaGLRegisterBufferObject(g_bufferId));
-	//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
+
+#ifdef WITH_CLIENT_EPOXY
+	if (use_gl) {
+		GLuint pboIds[1];      // IDs of PBO
+		GLuint textureIds[1];  // ID of texture
+
+		glGenTextures(1, textureIds);
+		g_textureId = textureIds[0];
+
+		glBindTexture(GL_TEXTURE_2D, g_textureId);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+		//glTexImage2D(GL_TEXTURE_2D,
+		//	0,
+		//	GL_RGBA8,
+		//	g_renderengine_data.width,
+		//	g_renderengine_data.height,
+		//	0,
+		//	GL_RGBA,
+		//	GL_UNSIGNED_BYTE,
+		//	NULL);
+
+		glTexImage2D(GL_TEXTURE_2D,
+			0,
+
+#ifdef TCP_PIX_SIZE_F32
+			GL_RGBA,
+#elif defined(TCP_PIX_SIZE_U16)
+			GL_RGBA16F,
+#else //TCP_PIX_SIZE_U8
+			GL_RGBA,
 #endif
+
+			g_renderengine_data.width,
+			g_renderengine_data.height,
+			0,
+			GL_RGBA,
+#ifdef TCP_PIX_SIZE_F32
+			GL_FLOAT,
+#elif defined(TCP_PIX_SIZE_U16)
+			GL_HALF_FLOAT,
+#else //TCP_PIX_SIZE_U8
+			GL_UNSIGNED_BYTE,
+#endif
+			NULL);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		glGenBuffers(1, pboIds);
+		g_bufferId = pboIds[0];
+
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
+
+		glBufferData(GL_PIXEL_UNPACK_BUFFER,
+			(size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
+			0,
+			GL_DYNAMIC_COPY);
+
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+		cuda_assert(cudaGLRegisterBufferObject(g_bufferId));
+		//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
+	}
+#endif
+
 	cuda_assert(cudaMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
 	printf("Setup texture %d x %d, Pointer: %lld (Size: %lld)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 }
 
-void free_texture()
+void free_texture(bool use_gl)
 {
 	cuda_set_device();
 
 #ifdef WITH_CLIENT_EPOXY
 	//cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
-	cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
+
+	if (use_gl) {
+		cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
+	}
 #endif
 
 	printf("Free texture Pointer: %lld\n", (size_t)g_pixels_buf_recv_d);
 	cuda_assert(cudaFree(g_pixels_buf_recv_d));	
 
 #ifdef WITH_CLIENT_EPOXY
-	glDeleteFramebuffers(1, &g_bufferId);
-	glDeleteTextures(1, &g_textureId);
+	if (use_gl) {
+		glDeleteFramebuffers(1, &g_bufferId);
+		glDeleteTextures(1, &g_textureId);
+	}
 #endif
 }
 
-void to_ortho()
+void to_ortho(bool use_gl)
 {
 #ifdef WITH_CLIENT_EPOXY
-	// set viewport to be the entire window
-	glViewport(0, 0, (GLsizei)g_renderengine_data.width, (GLsizei)g_renderengine_data.height);
+	if (use_gl) {
+		// set viewport to be the entire window
+		glViewport(0, 0, (GLsizei)g_renderengine_data.width, (GLsizei)g_renderengine_data.height);
 
-	// set orthographic viewing frustum
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+		// set orthographic viewing frustum
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
 
-	glOrtho(0, 1, 0, 1, -1, 1);
+		glOrtho(0, 1, 0, 1, -1, 1);
 
-	//glOrtho(0, 0.5, 0, 1, -1, 1);
-	//glOrtho(0.5, 1, 0, 1, -1, 1);
+		//glOrtho(0, 0.5, 0, 1, -1, 1);
+		//glOrtho(0.5, 1, 0, 1, -1, 1);
 
-	// switch to modelview matrix in order to set scene
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+		// switch to modelview matrix in order to set scene
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+	}
 #endif
 }
 
-void draw_texture()
+void draw_texture_internal(bool use_gl)
 {
-#ifdef WITH_CLIENT_EPOXY
 	cuda_set_device();
-	cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
-	cuda_assert(cudaMemcpy(g_pixels_buf_d, g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
-		cudaMemcpyDeviceToDevice));
-	cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
+#ifdef WITH_CLIENT_EPOXY
+	if (use_gl) {
+		cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
+		cuda_assert(cudaMemcpy(g_pixels_buf_d, g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
+			cudaMemcpyDeviceToDevice));
+		cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
 
-	//download texture from pbo
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
-	glBindTexture(GL_TEXTURE_2D, g_textureId);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_renderengine_data.width, g_renderengine_data.height,
-		GL_RGBA, 
+		//download texture from pbo
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
+		glBindTexture(GL_TEXTURE_2D, g_textureId);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_renderengine_data.width, g_renderengine_data.height,
+			GL_RGBA,
 
 #ifdef TCP_PIX_SIZE_F32
-		GL_FLOAT,
+			GL_FLOAT,
 #elif defined(TCP_PIX_SIZE_U16)
-		GL_HALF_FLOAT,
+			GL_HALF_FLOAT,
 #else //TCP_PIX_SIZE_U8
-		GL_UNSIGNED_BYTE,
+			GL_UNSIGNED_BYTE,
 #endif
 
-		NULL);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+			NULL);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, g_textureId);
-	//glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
-	////glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, g_textureId);
+		//glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
+		////glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-	//return;
+		//return;
 
-	////glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		////glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	//// bind the texture and PBO
-	//glBindTexture(GL_TEXTURE_2D, g_textureId);
-	//glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
+		//// bind the texture and PBO
+		//glBindTexture(GL_TEXTURE_2D, g_textureId);
+		//glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
 
-	//// copy pixels from PBO to texture object
-	//// use offset instead of pointer.
-	//glTexSubImage2D(GL_TEXTURE_2D,
-	//	0,
-	//	0,
-	//	0,
-	//	g_renderengine_data.width,
-	//	g_renderengine_data.height,
-	//	GL_RGBA,
-	//	GL_UNSIGNED_BYTE,
-	//	0);
+		//// copy pixels from PBO to texture object
+		//// use offset instead of pointer.
+		//glTexSubImage2D(GL_TEXTURE_2D,
+		//	0,
+		//	0,
+		//	0,
+		//	g_renderengine_data.width,
+		//	g_renderengine_data.height,
+		//	GL_RGBA,
+		//	GL_UNSIGNED_BYTE,
+		//	0);
 
-	//glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//glBindTexture(GL_TEXTURE_2D, 0);
-
+		//glBindBuffer(GL_ARRAY_BUFFER, 0);
+		//glBindTexture(GL_TEXTURE_2D, 0);
+	}
 #endif
 }
+
+void draw_texture() {
+	draw_texture_internal(true);
+}
+
 //////////////////////////
 void set_frame(int frame)
 {
@@ -360,7 +377,7 @@ void set_resolution(int width, int height)
 	g_renderengine_data.height = height;
 }
 
-void resize(int width, int height)
+void resize_internal(int width, int height, bool use_gl)
 {
 	if (width == g_renderengine_data.width && height == g_renderengine_data.height && g_pixels_buf)
 		return;
@@ -369,7 +386,7 @@ void resize(int width, int height)
 
 	if (g_pixels_buf)
 	{		
-		free_texture();
+		free_texture(use_gl);
 		cuda_assert(cudaFreeHost(g_pixels_buf));
 	}
 
@@ -381,7 +398,12 @@ void resize(int width, int height)
 	//int* size = (int*)&g_renderengine_data.width;
 	//g_renderengine_data.width = width;
 	//g_renderengine_data.height = height;
-	setup_texture();
+	setup_texture(use_gl);
+}
+
+void resize(int width, int height)
+{
+	resize_internal(width, height, true);
 }
 
 int recv_pixels_data()
@@ -478,7 +500,7 @@ int recv_cam_data()
 	g_renderengine_data.width = width_old;
 	g_renderengine_data.height = height_old;
 
-	resize(width, height);
+	resize_internal(width, height, false);
 
 	return 0;
 }
@@ -565,7 +587,7 @@ void client_init(const char* server,
 	memset(&g_renderengine_data, 0, sizeof(renderengine_data));
 	memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
 
-	resize(w, h);
+	resize_internal(w, h, true);
 }
 
 void server_init(const char* server,
@@ -578,7 +600,7 @@ void server_init(const char* server,
 	memset(&g_renderengine_data, 0, sizeof(renderengine_data));
 	memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
 
-	resize(w, h);
+	resize_internal(w, h, false);
 }
 
 void client_close_connection()
