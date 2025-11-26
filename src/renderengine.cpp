@@ -80,6 +80,7 @@ GLuint g_textureId;  // ID of texture
 #endif
 
 renderengine_data g_renderengine_data;
+renderengine_data g_renderengine_data_recv;
 BRaaSHPCDataState g_hs_data_state;
 
 double g_previousTime[3] = { 0, 0, 0 };
@@ -489,20 +490,24 @@ int send_cam_data()
 
 int recv_cam_data()
 {
-	int width_old = g_renderengine_data.width;
-	int height_old = g_renderengine_data.height;
+	//int width_old = g_renderengine_data.width;
+	//int height_old = g_renderengine_data.height;
 
-	tcpConnection.recv_data_data((char*)&g_renderengine_data, sizeof(renderengine_data));
+	//tcpConnection.recv_data_data((char*)&g_renderengine_data, sizeof(renderengine_data));
+	tcpConnection.recv_data_data((char*)&g_renderengine_data_recv, sizeof(renderengine_data));
 
-	int width = g_renderengine_data.width;
-	int height = g_renderengine_data.height;
+	int width = g_renderengine_data_recv.width;
+	int height = g_renderengine_data_recv.height;
 
-	g_renderengine_data.width = width_old;
-	g_renderengine_data.height = height_old;
+	//g_renderengine_data.width = width_old;
+	//g_renderengine_data.height = height_old;
 
 	resize_internal(width, height, false);
 
-	return 0;
+	int compare = memcmp((char*)&g_renderengine_data, (char*)&g_renderengine_data_recv, sizeof(renderengine_data));
+	memcpy((char*)&g_renderengine_data, (char*)&g_renderengine_data_recv, sizeof(renderengine_data));
+
+	return compare;
 }
 
 void reset()
