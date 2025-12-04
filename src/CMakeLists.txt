@@ -57,12 +57,38 @@ set(SRC_HEADERS
 include_directories(${INC})
 add_library(braas_hpc_renderengine SHARED ${SRC} ${SRC_HEADERS})
 
+# Enable symbol export on Windows
+if(WIN32)
+    set_target_properties(braas_hpc_renderengine PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+endif()
+
 target_link_libraries(braas_hpc_renderengine 
     ${CUDA_LIBRARIES}
     ${CUDA_CUDA_LIBRARY} # For CUDA Driver API
     ${OPENGL_LIBRARIES}
     ${EPOXY_LIBRARIES}
     OpenMP::OpenMP_CXX
+)
+
+target_include_directories(braas_hpc_renderengine PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+install(TARGETS braas_hpc_renderengine
+    EXPORT braas_hpc_renderengine_targets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
+
+install(EXPORT braas_hpc_renderengine_targets
+    FILE braas_hpc_renderengineTargets.cmake
+    NAMESPACE braas_hpc_renderengine::
+    DESTINATION lib/cmake/braas_hpc_renderengine
 )
 
 if(WITH_CLIENT_GPUJPEG)
@@ -72,7 +98,7 @@ if(WITH_CLIENT_GPUJPEG)
     )
 endif()
   
-install (TARGETS braas_hpc_renderengine DESTINATION lib)
+#install (TARGETS braas_hpc_renderengine DESTINATION lib)
 install (FILES renderengine_api.h DESTINATION include)
 install (FILES renderengine_data.h DESTINATION include)
 install (FILES renderengine_tcp.h DESTINATION include)

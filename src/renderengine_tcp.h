@@ -20,6 +20,7 @@
 #define __RENDERENGINE_TCP_H__
 
 #include <stdlib.h>
+#include "renderengine_api.h"
 
 #    ifdef _WIN32
 
@@ -50,7 +51,7 @@
 #define MAX_CONNECTIONS 100
 
 
-class TcpConnection {
+class BRAAS_HPC_EXPORT_DLL TcpConnection {
 protected:
 	int g_port_offset = -1;
 

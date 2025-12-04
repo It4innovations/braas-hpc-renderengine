@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies
+find_dependency(CUDA REQUIRED)
+find_dependency(OpenMP REQUIRED)
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/braas_hpc_renderengineTargets.cmake")
+
+check_required_components(braas_hpc_renderengine)

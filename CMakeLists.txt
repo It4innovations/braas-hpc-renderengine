@@ -54,4 +54,25 @@ endif()
 
 #####################################################################################################################
 
+include(CMakePackageConfigHelpers)
+
 add_subdirectory(src)
+
+# Generate package configuration files
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/braas_hpc_renderengineConfigVersion.cmake"
+    VERSION 1.0.0
+    COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/braas_hpc_renderengineConfig.cmake"
+    INSTALL_DESTINATION lib/cmake/braas_hpc_renderengine
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/braas_hpc_renderengineConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/braas_hpc_renderengineConfigVersion.cmake"
+    DESTINATION lib/cmake/braas_hpc_renderengine
+)

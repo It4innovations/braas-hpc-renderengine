@@ -23,7 +23,11 @@
 #	define BRAAS_HPC_EXPORT_DLL
 #	define BRAAS_HPC_EXPORT_STD
 #elif defined(_WIN32)
-#	define BRAAS_HPC_EXPORT_DLL __declspec(dllexport)
+#	ifdef braas_hpc_renderengine_EXPORTS
+#		define BRAAS_HPC_EXPORT_DLL __declspec(dllexport)
+#	else
+#		define BRAAS_HPC_EXPORT_DLL __declspec(dllimport)
+#	endif
 #	define BRAAS_HPC_EXPORT_STD __stdcall
 #else
 #	define BRAAS_HPC_EXPORT_DLL
