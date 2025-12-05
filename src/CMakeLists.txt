@@ -23,7 +23,7 @@ if(WITH_CLIENT_EPOXY)
     add_definitions(-DWITH_CLIENT_EPOXY)
 endif()
 
-find_package(OpenMP REQUIRED)
+# find_package(OpenMP REQUIRED)
 
 set(INC
 	 .
@@ -61,7 +61,7 @@ target_link_libraries(braas_hpc_renderengine
     ${CUDA_CUDA_LIBRARY} # For CUDA Driver API
     ${OPENGL_LIBRARIES}
     ${EPOXY_LIBRARIES}
-    OpenMP::OpenMP_CXX
+    # OpenMP::OpenMP_CXX
 )
 
 target_include_directories(braas_hpc_renderengine PUBLIC

@@ -25,7 +25,7 @@
 #include <sys/types.h>
 
 
-#include <omp.h>
+// #include <omp.h>
 
 // RGB
 #  define TCP_WIN_SIZE_SEND (32L * 1024L * 1024L)

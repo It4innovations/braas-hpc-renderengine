@@ -25,15 +25,11 @@
 #ifdef WITH_CLIENT_EPOXY
 #	include <epoxy/gl.h>
 #	include <cuda_gl_interop.h>
-#else
+#elif defined(WITH_CLIENT_GPUJPEG)
 #	include <cuda_runtime.h>
 #endif
 
 #include "renderengine_tcp.h"
-
-#if _WIN32
-#include <omp.h>
-#endif
 
 #include <iostream>
 #include <string.h>
@@ -103,7 +99,8 @@ int active_gpu = 1;
 float local_fps = 0;
 
 /////////////////////////
-#ifdef _WIN32
+#if 0 //def _WIN32
+#include <omp.h>
 void displayFPS(int type, int tot_samples = 0)
 {
 	double currentTime = omp_get_wtime();
@@ -137,6 +134,8 @@ void check_exit()
 {
 }
 
+#if defined(WITH_CLIENT_EPOXY) || defined(WITH_CLIENT_GPUJPEG)
+
 #define cuda_assert(stmt) \
   { \
     if (stmt != cudaSuccess) { \
@@ -169,6 +168,10 @@ bool gpu_error_(cudaError_t result, const std::string& stmt)
 	fprintf(stderr, "%s\n", message.c_str());
 	return true;
 }
+#else
+#	define cuda_assert(stmt) ((void)0)
+#   define gpu_error_(result, stmt) false
+#endif
 
 #define gpu_error(stmt) gpu_error_(stmt, #stmt)
 
