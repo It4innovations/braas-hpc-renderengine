@@ -60,6 +60,15 @@ _renderengine_dll.send_cam_data.restype = c_int32
 _renderengine_dll.recv_cam_data.restype = c_int32
 _renderengine_dll.set_timestep.argtypes = [c_int32]
 
+# Pixel size operations
+_renderengine_dll.set_pixsize.argtypes = [c_int32]
+_renderengine_dll.get_pixsize.restype = c_int32
+
+# GPU JPEG operations
+_renderengine_dll.enable_gpujpeg.argtypes = [c_int32]
+_renderengine_dll.enable_gpujpeg.restype = c_int32
+_renderengine_dll.is_gpujpeg.restype = c_int32
+
 # Server/Client connection
 _renderengine_dll.client_init.argtypes = [c_char_p, c_int32, c_int32, c_int32]
 _renderengine_dll.server_init.argtypes = [c_char_p, c_int32, c_int32, c_int32]
@@ -127,6 +136,14 @@ send_cam_data = _renderengine_dll.send_cam_data
 recv_cam_data = _renderengine_dll.recv_cam_data
 set_timestep = _renderengine_dll.set_timestep
 
+# Pixel size operations
+set_pixsize = _renderengine_dll.set_pixsize
+get_pixsize = _renderengine_dll.get_pixsize
+
+# GPU JPEG operations
+enable_gpujpeg = _renderengine_dll.enable_gpujpeg
+is_gpujpeg = _renderengine_dll.is_gpujpeg
+
 # Server/Client connection
 client_init = _renderengine_dll.client_init
 server_init = _renderengine_dll.server_init
@@ -185,6 +202,12 @@ __all__ = [
     'send_cam_data',
     'recv_cam_data',
     'set_timestep',
+    # Pixel size operations
+    'set_pixsize',
+    'get_pixsize',
+    # GPU JPEG operations
+    'enable_gpujpeg',
+    'is_gpujpeg',
     # Server/Client connection
     'client_init',
     'server_init',

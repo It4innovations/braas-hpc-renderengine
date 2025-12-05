@@ -41,12 +41,16 @@
 #include <stdlib.h>
 //#include <vector>
 
-#ifdef TCP_PIX_SIZE_F32
-#	define PIX_SIZE sizeof(float)
-#elif defined(TCP_PIX_SIZE_U16)
-#	define PIX_SIZE sizeof(unsigned short)
-#else //TCP_PIX_SIZE_U8
-#	define PIX_SIZE sizeof(unsigned char)
+#define TCP_PIX_SIZE_F32 sizeof(float)
+#define TCP_PIX_SIZE_U16 sizeof(unsigned short)
+#define TCP_PIX_SIZE_U8 sizeof(unsigned char)
+
+size_t PIX_SIZE = TCP_PIX_SIZE_U8;
+
+#ifdef WITH_CLIENT_GPUJPEG
+bool USE_GPUJPEG = true;
+#else
+bool USE_GPUJPEG = false;
 #endif
 
 //////////////////////////
@@ -211,29 +215,62 @@ void setup_texture(bool use_gl)
 		//	GL_UNSIGNED_BYTE,
 		//	NULL);
 
-		glTexImage2D(GL_TEXTURE_2D,
-			0,
-
-#ifdef TCP_PIX_SIZE_F32
-			GL_RGBA,
-#elif defined(TCP_PIX_SIZE_U16)
-			GL_RGBA16F,
-#else //TCP_PIX_SIZE_U8
-			GL_RGBA,
-#endif
-
-			g_renderengine_data.width,
-			g_renderengine_data.height,
-			0,
-			GL_RGBA,
-#ifdef TCP_PIX_SIZE_F32
-			GL_FLOAT,
-#elif defined(TCP_PIX_SIZE_U16)
-			GL_HALF_FLOAT,
-#else //TCP_PIX_SIZE_U8
-			GL_UNSIGNED_BYTE,
-#endif
-			NULL);
+//		glTexImage2D(GL_TEXTURE_2D,
+//			0,
+//
+//#ifdef TCP_PIX_SIZE_F32
+//			GL_RGBA,
+//#elif defined(TCP_PIX_SIZE_U16)
+//			GL_RGBA16F,
+//#else //TCP_PIX_SIZE_U8
+//			GL_RGBA,
+//#endif
+//
+//			g_renderengine_data.width,
+//			g_renderengine_data.height,
+//			0,
+//			GL_RGBA,
+//#ifdef TCP_PIX_SIZE_F32
+//			GL_FLOAT,
+//#elif defined(TCP_PIX_SIZE_U16)
+//			GL_HALF_FLOAT,
+//#else //TCP_PIX_SIZE_U8
+//			GL_UNSIGNED_BYTE,
+//#endif
+//			NULL);
+		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
+			glTexImage2D(GL_TEXTURE_2D,
+				0,
+				GL_RGBA,
+				g_renderengine_data.width,
+				g_renderengine_data.height,
+				0,
+				GL_RGBA,
+				GL_FLOAT,
+				NULL);
+		}
+		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
+			glTexImage2D(GL_TEXTURE_2D,
+				0,
+				GL_RGBA16F,
+				g_renderengine_data.width,
+				g_renderengine_data.height,
+				0,
+				GL_RGBA,
+				GL_HALF_FLOAT,
+				NULL);
+		}
+		else { // TCP_PIX_SIZE_U8
+			glTexImage2D(GL_TEXTURE_2D,
+				0,
+				GL_RGBA,
+				g_renderengine_data.width,
+				g_renderengine_data.height,
+				0,
+				GL_RGBA,
+				GL_UNSIGNED_BYTE,
+				NULL);
+		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -317,18 +354,52 @@ void draw_texture_internal(bool use_gl)
 		//download texture from pbo
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
 		glBindTexture(GL_TEXTURE_2D, g_textureId);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_renderengine_data.width, g_renderengine_data.height,
-			GL_RGBA,
+//		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_renderengine_data.width, g_renderengine_data.height,
+//			GL_RGBA,
+//
+//#ifdef TCP_PIX_SIZE_F32
+//			GL_FLOAT,
+//#elif defined(TCP_PIX_SIZE_U16)
+//			GL_HALF_FLOAT,
+//#else //TCP_PIX_SIZE_U8
+//			GL_UNSIGNED_BYTE,
+//#endif
+//
+//			NULL);
+		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
+			glTexSubImage2D(GL_TEXTURE_2D,
+				0,
+				0,
+				0,
+				g_renderengine_data.width,
+				g_renderengine_data.height,
+				GL_RGBA,
+				GL_FLOAT,
+				NULL);
+		}
+		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
+			glTexSubImage2D(GL_TEXTURE_2D,
+				0,
+				0,
+				0,
+				g_renderengine_data.width,
+				g_renderengine_data.height,
+				GL_RGBA,
+				GL_HALF_FLOAT,
+				NULL);
+		}
+		else { // TCP_PIX_SIZE_U8
+			glTexSubImage2D(GL_TEXTURE_2D,
+				0,
+				0,
+				0,
+				g_renderengine_data.width,
+				g_renderengine_data.height,
+				GL_RGBA,
+				GL_UNSIGNED_BYTE,
+				NULL);
+		}
 
-#ifdef TCP_PIX_SIZE_F32
-			GL_FLOAT,
-#elif defined(TCP_PIX_SIZE_U16)
-			GL_HALF_FLOAT,
-#else //TCP_PIX_SIZE_U8
-			GL_UNSIGNED_BYTE,
-#endif
-
-			NULL);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 		glActiveTexture(GL_TEXTURE0);
@@ -411,29 +482,38 @@ int recv_pixels_data()
 {  
 	cuda_set_device();
 
-#ifdef WITH_CLIENT_GPUJPEG
+	if (USE_GPUJPEG) {
+		//#ifdef TCP_PIX_SIZE_F32
+		//	int format = 2;
+		//#elif defined(TCP_PIX_SIZE_U16)
+		//	int format = 1;
+		//#else //TCP_PIX_SIZE_U8
+		int format = 0;
+		//#endif
+		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
+			int format = 2;
+		}
+		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
+			int format = 1;
+		}
+		else { //TCP_PIX_SIZE_U8
+			int format = 0;
+		}
 
-#ifdef TCP_PIX_SIZE_F32
-	int format = 2;
-#elif defined(TCP_PIX_SIZE_U16)
-	int format = 1;
-#else //TCP_PIX_SIZE_U8
-	int format = 0;
-#endif
+		tcpConnection.recv_gpujpeg(
+			(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
+	}
+	else {
+		tcpConnection.recv_data_data((char*)g_pixels_buf,
+			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
 
-	tcpConnection.recv_gpujpeg(
-		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
-#else
-	tcpConnection.recv_data_data((char*)g_pixels_buf,
-		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
+		cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
+			g_pixels_buf,
+			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
+			cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 
-	cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
-		g_pixels_buf,
-		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
-		cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
-
-	//current_samples = ((int*)g_pixels_buf)[0];
-#endif
+		//current_samples = ((int*)g_pixels_buf)[0];
+	}
 
 	tcpConnection.recv_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
@@ -448,29 +528,39 @@ int send_pixels_data()
 {  
 	cuda_set_device();
 
-#ifdef WITH_CLIENT_GPUJPEG
+	if (USE_GPUJPEG) {
 
-#ifdef TCP_PIX_SIZE_F32
-	int format = 2;
-#elif defined(TCP_PIX_SIZE_U16)
-	int format = 1;
-#else //TCP_PIX_SIZE_U8
-	int format = 0;
-#endif
+		//#ifdef TCP_PIX_SIZE_F32
+		//	int format = 2;
+		//#elif defined(TCP_PIX_SIZE_U16)
+		//	int format = 1;
+		//#else //TCP_PIX_SIZE_U8
+		int format = 0;
+		//#endif
+		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
+			int format = 2;
+		}
+		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
+			int format = 1;
+		}
+		else { //TCP_PIX_SIZE_U8
+			int format = 0;
+		}
 
-	tcpConnection.send_gpujpeg(
-		(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
-#else
-	//cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
-	//	g_pixels_buf,
-	//	g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
-	//	cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+		tcpConnection.send_gpujpeg(
+			(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
+	}
+	else {
+		//cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
+		//	g_pixels_buf,
+		//	g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
+		//	cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 
-	tcpConnection.send_data_data((char*)g_pixels_buf,
-		g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
+		tcpConnection.send_data_data((char*)g_pixels_buf,
+			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
 
-	//current_samples = ((int*)g_pixels_buf)[0];
-#endif
+		//current_samples = ((int*)g_pixels_buf)[0];
+	}
 
 	tcpConnection.send_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
@@ -565,6 +655,51 @@ void set_braas_hpc_renderengine_range(
 void set_timestep(int timestep)
 {
 	tcpConnection.set_port_offset(timestep);
+}
+
+int get_pixsize()
+{
+	if (PIX_SIZE == TCP_PIX_SIZE_F32) {
+		return 32;
+	}
+	else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
+		return 16;
+	}
+	else { // TCP_PIX_SIZE_U8
+		return 8;
+	}	
+}
+
+void set_pixsize(int ps)
+{
+	if (ps == 8) {
+		PIX_SIZE = TCP_PIX_SIZE_U8;
+	}
+	else if (ps == 32) {
+		PIX_SIZE = TCP_PIX_SIZE_F32;
+	}
+	else if (ps == 16) {
+		PIX_SIZE = TCP_PIX_SIZE_U16;
+	}
+	else {
+		printf("set_pixsize: Unsupported pixel size %d, using 8 bits\n", ps);
+		PIX_SIZE = TCP_PIX_SIZE_U8;
+	}
+}
+
+int is_gpujpeg() {
+	return USE_GPUJPEG ? 1 : 0;
+}
+
+int enable_gpujpeg(int enabled)
+{
+#ifdef WITH_CLIENT_GPUJPEG
+	USE_GPUJPEG = (enabled != 0);
+	return 0;
+#else
+	printf("enable_gpujpeg: Not compiled with GPUJPEG support\n");
+	return -1;
+#endif
 }
 
 void client_init(const char* server,
@@ -732,15 +867,16 @@ void set_pixels(void* pixels, bool device)
 			cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 	}
 	else {
-#ifdef WITH_CLIENT_GPUJPEG
-		cuda_assert(cudaMemcpy(
-			g_pixels_buf_recv_d,
-			pixels,
-			(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
-			cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
-#else
-		memcpy((char*)g_pixels_buf, pixels, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
-#endif
+		if (USE_GPUJPEG) {
+			cuda_assert(cudaMemcpy(
+				g_pixels_buf_recv_d,
+				pixels,
+				(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
+				cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+		}
+		else {
+			memcpy((char*)g_pixels_buf, pixels, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
+		}
 	}
 }
 

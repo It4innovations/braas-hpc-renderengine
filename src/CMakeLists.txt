@@ -23,14 +23,6 @@ if(WITH_CLIENT_EPOXY)
     add_definitions(-DWITH_CLIENT_EPOXY)
 endif()
 
-if(TCP_PIX_SIZE_U16)
-    add_definitions(-DTCP_PIX_SIZE_U16)
-endif()
-
-if(TCP_PIX_SIZE_F32)
-    add_definitions(-DTCP_PIX_SIZE_F32)
-endif()
-
 find_package(OpenMP REQUIRED)
 
 set(INC

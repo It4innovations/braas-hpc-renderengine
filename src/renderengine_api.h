@@ -55,6 +55,11 @@ extern "C"
 
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_timestep(int timestep);
 
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_pixsize(int ps);
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_pixsize();
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD enable_gpujpeg(int enabled);
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD is_gpujpeg();
+
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD client_init(const char *server, int port, int w, int h);
 	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD server_init(const char* server, int port, int w, int h);
 

@@ -1091,17 +1091,17 @@ int TcpConnection::gpujpeg_encode(int width,
 	param_image.comp_count = 4;
 	param_image.color_space = GPUJPEG_RGB; // GPUJPEG_YCBCR_BT709;     // GPUJPEG_RGB;
 	//param_image.pixel_format = GPUJPEG_444_U8_P012A; // GPUJPEG_444_U8_P0P1P2;  // GPUJPEG_420_U8_P0P1P2; GPUJPEG_RGB, GPUJPEG_444_U8_P012A
-	if (format == 0) {
+	if (format == 8) {
 		param_image.pixel_format = GPUJPEG_444_U8_P012A;
 	}
-	else if (format == 1) {
+	else if (format == 16) {
 		param_image.pixel_format = GPUJPEG_444_U16_P012O;
 	}
-	else if (format == 2) {
+	else if (format == 32) {
 		param_image.pixel_format = GPUJPEG_444_F32_P012O;
 	}
 	else {
-		printf("gpujpeg_encode: unsupported format [0-2] %d\n", format);
+		printf("gpujpeg_encode: unsupported format [8,16,32] %d\n", format);
 		return 1;
 	}
 	//param_image.pixel_format = GPUJPEG_444_F32_P012O;
@@ -1149,17 +1149,17 @@ int TcpConnection::gpujpeg_decode(int width,
 	}
 
 	//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U8_P012Z);
-	if (format == 0) { //U8 - RGB
+	if (format == 8) { //U8 - RGB
 		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U8_P012A); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
-	else if (format == 1) { //U16 - RGB
+	else if (format == 16) { //U16 - RGB
 		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U16_P012O); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
-	else if (format == 2) { //FLOAT - RGB
+	else if (format == 32) { //FLOAT - RGB
 		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_F32_P012O); //GPUJPEG_444_U8_P012Z
 	}
 	else {
-		printf("gpujpeg_decode: unsupported format [0-2] %d\n", format);
+		printf("gpujpeg_decode: unsupported format [8,16,32] %d\n", format);
 		return 1;
 	}
 	//gpujpeg_decoder_set_output_format(
