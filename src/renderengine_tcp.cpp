@@ -48,6 +48,11 @@
 #  define KERNEL_SOCKET_RECV_IGNORE_RC(s, buf, len) { auto rc = read(s, buf, len); assert(rc == len); }
 #endif
 
+TcpConnection::TcpConnection()
+{
+	init_port();
+}
+
 int TcpConnection::setsock_tcp_windowsize(int inSock, int inTCPWin, int inSend)
 {
 #  ifdef SO_SNDBUF

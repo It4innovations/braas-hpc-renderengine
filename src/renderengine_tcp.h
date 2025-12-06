@@ -83,6 +83,7 @@ protected:
 	gpujpeg_decoder* g_decoder = NULL;
 #endif
 public:
+	TcpConnection();
 	virtual void write_data_kernelglobal(void* data, size_t size);
 	virtual bool read_data_kernelglobal(void* data, size_t size);
 	virtual void close_kernelglobal();
