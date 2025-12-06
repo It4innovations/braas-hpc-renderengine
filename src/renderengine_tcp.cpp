@@ -1200,13 +1200,13 @@ int TcpConnection::gpujpeg_decode(int width,
 void TcpConnection::send_gpujpeg(char* dmem, char* pixels, int width, int height, int format)
 {
 #ifdef WITH_CLIENT_GPUJPEG
-	double t0 = omp_get_wtime();
+	// double t0 = omp_get_wtime();
 	int frame_size = 0;
 	gpujpeg_encode(width, height, format, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
-	double t1 = omp_get_wtime();
+	// double t1 = omp_get_wtime();
 	send_data_data((char*)&frame_size, sizeof(int));
 	send_data_data((char*)g_image_compressed, frame_size);
-	double t2 = omp_get_wtime();
+	// double t2 = omp_get_wtime();
 	//printf("send_gpujpeg: %f, %f, fps: %f, %f\n", t1 - t0, t2 - t1, 1.0/(t1 - t0), 1.0/(t2 - t1));
 #endif
 }
