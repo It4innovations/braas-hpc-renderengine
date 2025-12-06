@@ -520,9 +520,9 @@ int recv_pixels_data()
 
 	tcpConnection.recv_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
-#ifdef _WIN32
-	displayFPS(1, get_current_samples());
-#endif	
+//#ifdef _WIN32
+//	displayFPS(1, get_current_samples());
+//#endif	
 
 	return 0;
 }
@@ -567,9 +567,9 @@ int send_pixels_data()
 
 	tcpConnection.send_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
-#ifdef _WIN32
-	displayFPS(1, get_current_samples());
-#endif	
+//#ifdef _WIN32
+//	displayFPS(1, get_current_samples());
+//#endif	
 
 	return 0;
 }
