@@ -26,6 +26,7 @@
 
 
 // #include <omp.h>
+#define DEBUG_PRINT(size) printf("%s: %lld\n", __FUNCTION__, size);
 
 // RGB
 #  define TCP_WIN_SIZE_SEND (32L * 1024L * 1024L)
@@ -610,8 +611,6 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 		}
 	}
 }
-
-#  define DEBUG_PRINT(size) //printf("%s: %lld\n", __FUNCTION__, size);
 
 void TcpConnection::send_data_cam(char* data, size_t size, bool ack_enabled)
 {
