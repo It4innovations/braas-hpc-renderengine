@@ -26,7 +26,7 @@
 
 
 // #include <omp.h>
-#define DEBUG_PRINT(size) printf("%s: %lld\n", __FUNCTION__, size);
+#define DEBUG_PRINT(size) //printf("%s: %lld\n", __FUNCTION__, size);
 
 // RGB
 #  define TCP_WIN_SIZE_SEND (32L * 1024L * 1024L)
