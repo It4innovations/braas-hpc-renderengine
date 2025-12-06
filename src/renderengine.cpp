@@ -24,9 +24,10 @@
 //#endif
 #ifdef WITH_CLIENT_EPOXY
 #	include <epoxy/gl.h>
-#	include <cuda_gl_interop.h>
-#elif defined(WITH_CLIENT_GPUJPEG)
-#	include <cuda_runtime.h>
+#	if defined(WITH_CLIENT_GPUJPEG)
+#		include <cuda_gl_interop.h>
+#		include <cuda_runtime.h>
+#	endif
 #endif
 
 #include "renderengine_tcp.h"
@@ -36,6 +37,15 @@
 #include <string>
 #include <stdlib.h>
 //#include <vector>
+
+// Platform-specific timing includes
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <mach/mach_time.h>
+#else
+#include <time.h>
+#endif
 
 #define TCP_PIX_SIZE_F32 sizeof(float)
 #define TCP_PIX_SIZE_U16 sizeof(unsigned short)
@@ -99,11 +109,41 @@ int active_gpu = 1;
 float local_fps = 0;
 
 /////////////////////////
-#if 0 //def _WIN32
-#include <omp.h>
+// Platform-specific high-resolution timer
+static double get_current_time()
+{
+#ifdef _WIN32
+	// Windows: Use QueryPerformanceCounter
+	static LARGE_INTEGER frequency;
+	static bool initialized = false;
+	if (!initialized) {
+		QueryPerformanceFrequency(&frequency);
+		initialized = true;
+	}
+	LARGE_INTEGER counter;
+	QueryPerformanceCounter(&counter);
+	return (double)counter.QuadPart / (double)frequency.QuadPart;
+#elif defined(__APPLE__)
+	// macOS: Use mach_absolute_time
+	static mach_timebase_info_data_t timebase;
+	static bool initialized = false;
+	if (!initialized) {
+		mach_timebase_info(&timebase);
+		initialized = true;
+	}
+	uint64_t time = mach_absolute_time();
+	return (double)time * (double)timebase.numer / (double)timebase.denom / 1e9;
+#else
+	// Linux: Use clock_gettime with CLOCK_MONOTONIC
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+#endif
+}
+
 void displayFPS(int type, int tot_samples = 0)
 {
-	double currentTime = omp_get_wtime();
+	double currentTime = get_current_time();
 	g_frameCount[type]++;
 
 	local_fps = (double)g_frameCount[type] / (currentTime - g_previousTime[type]);
@@ -125,16 +165,15 @@ void displayFPS(int type, int tot_samples = 0)
 			printf("%s\n", sTemp);
 		}
 		g_frameCount[type] = 0;
-		g_previousTime[type] = omp_get_wtime();
+		g_previousTime[type] = get_current_time();
 	}
 }
-#endif
 //////////////////////////
 void check_exit()
 {
 }
 
-#if defined(WITH_CLIENT_EPOXY) || defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG)
 
 #define cuda_assert(stmt) \
   { \
@@ -168,10 +207,6 @@ bool gpu_error_(cudaError_t result, const std::string& stmt)
 	fprintf(stderr, "%s\n", message.c_str());
 	return true;
 }
-#else
-#	define cuda_assert(stmt) ((void)0)
-#   define gpu_error_(result, stmt) false
-#endif
 
 #define gpu_error(stmt) gpu_error_(stmt, #stmt)
 
@@ -180,9 +215,16 @@ void gpu_error_message(const std::string& message)
 	fprintf(stderr, "%s\n", message.c_str());
 }
 
+//#else
+//#	define cuda_assert(stmt) ((void)0)
+//#   define gpu_error_(result, stmt) false
+#endif
+
 void cuda_set_device()
 {
+#if defined(WITH_CLIENT_GPUJPEG)
 	cuda_assert(cudaSetDevice(0));
+#endif
 }
 
 void setup_texture(bool use_gl)
@@ -289,13 +331,17 @@ void setup_texture(bool use_gl)
 
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
+#if defined(WITH_CLIENT_GPUJPEG)
 		cuda_assert(cudaGLRegisterBufferObject(g_bufferId));
+#endif
 		//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 	}
 #endif
 
+#if defined(WITH_CLIENT_GPUJPEG)
 	cuda_assert(cudaMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
 	printf("Setup texture %d x %d, Pointer: %lld (Size: %lld)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
+#endif
 }
 
 void free_texture(bool use_gl)
@@ -306,12 +352,16 @@ void free_texture(bool use_gl)
 	//cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
 
 	if (use_gl) {
+#if defined(WITH_CLIENT_GPUJPEG)
 		cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
+#endif
 	}
 #endif
 
+#if defined(WITH_CLIENT_GPUJPEG)
 	printf("Free texture Pointer: %lld\n", (size_t)g_pixels_buf_recv_d);
-	cuda_assert(cudaFree(g_pixels_buf_recv_d));	
+	cuda_assert(cudaFree(g_pixels_buf_recv_d));
+#endif	
 
 #ifdef WITH_CLIENT_EPOXY
 	if (use_gl) {
@@ -349,10 +399,20 @@ void draw_texture_internal(bool use_gl)
 	cuda_set_device();
 #ifdef WITH_CLIENT_EPOXY
 	if (use_gl) {
+#if defined(WITH_CLIENT_GPUJPEG)
 		cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 		cuda_assert(cudaMemcpy(g_pixels_buf_d, g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
 			cudaMemcpyDeviceToDevice));
 		cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
+#else
+		// Without CUDA, copy from CPU buffer to PBO using OpenGL
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
+		glBufferSubData(GL_PIXEL_UNPACK_BUFFER,
+			0,
+			(size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
+			g_pixels_buf);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+#endif
 
 		//download texture from pbo
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, g_bufferId);
@@ -462,13 +522,21 @@ void resize_internal(int width, int height, bool use_gl)
 	if (g_pixels_buf)
 	{		
 		free_texture(use_gl);
+#if defined(WITH_CLIENT_GPUJPEG)
 		cuda_assert(cudaFreeHost(g_pixels_buf));
+#else
+		free(g_pixels_buf);
+#endif
 	}
 
 	g_renderengine_data.width = width;
 	g_renderengine_data.height = height;
 
+#if defined(WITH_CLIENT_GPUJPEG)
 	cuda_assert(cudaHostAlloc((void**)&g_pixels_buf, (size_t)width * height * PIX_SIZE * 4, cudaHostAllocMapped));
+#else
+	g_pixels_buf = (unsigned char*)malloc((size_t)width * height * PIX_SIZE * 4);
+#endif
 
 	//int* size = (int*)&g_renderengine_data.width;
 	//g_renderengine_data.width = width;
@@ -491,16 +559,16 @@ int recv_pixels_data()
 		//#elif defined(TCP_PIX_SIZE_U16)
 		//	int format = 1;
 		//#else //TCP_PIX_SIZE_U8
-		int format = 0;
+		int format = 8;
 		//#endif
 		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
-			int format = 2;
+			format = 32;
 		}
 		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
-			int format = 1;
+			format = 16;
 		}
 		else { //TCP_PIX_SIZE_U8
-			int format = 0;
+			format = 8;
 		}
 
 		tcpConnection.recv_gpujpeg(
@@ -510,10 +578,12 @@ int recv_pixels_data()
 		tcpConnection.recv_data_data((char*)g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
 
+#if defined(WITH_CLIENT_GPUJPEG)
 		cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
 			g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
 			cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+#endif
 
 		//current_samples = ((int*)g_pixels_buf)[0];
 	}
@@ -521,7 +591,7 @@ int recv_pixels_data()
 	tcpConnection.recv_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
 //#ifdef _WIN32
-//	displayFPS(1, get_current_samples());
+	displayFPS(1, get_current_samples());
 //#endif	
 
 	return 0;
@@ -538,16 +608,16 @@ int send_pixels_data()
 		//#elif defined(TCP_PIX_SIZE_U16)
 		//	int format = 1;
 		//#else //TCP_PIX_SIZE_U8
-		int format = 0;
+		int format = 8;
 		//#endif
 		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
-			int format = 2;
+			int format = 32;
 		}
 		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
-			int format = 1;
+			int format = 16;
 		}
 		else { //TCP_PIX_SIZE_U8
-			int format = 0;
+			int format = 8;
 		}
 
 		tcpConnection.send_gpujpeg(
@@ -568,7 +638,7 @@ int send_pixels_data()
 	tcpConnection.send_data_data((char*)&g_hs_data_state, sizeof(BRaaSHPCDataState));
 
 //#ifdef _WIN32
-//	displayFPS(1, get_current_samples());
+	displayFPS(1, get_current_samples());
 //#endif	
 
 	return 0;
@@ -862,20 +932,23 @@ void set_pixels(void* pixels, bool device)
 
 	if (device) {
 		//printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
-
+#if defined(WITH_CLIENT_GPUJPEG)
 		cuda_assert(cudaMemcpy(
 			g_pixels_buf_recv_d,
 			pixels,
 			(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
 			cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+#endif
 	}
 	else {
 		if (USE_GPUJPEG) {
+#if defined(WITH_CLIENT_GPUJPEG)
 			cuda_assert(cudaMemcpy(
 				g_pixels_buf_recv_d,
 				pixels,
 				(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
 				cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+#endif
 		}
 		else {
 			memcpy((char*)g_pixels_buf, pixels, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
