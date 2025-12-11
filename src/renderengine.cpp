@@ -28,6 +28,10 @@
 #		include <cuda_gl_interop.h>
 #		include <cuda_runtime.h>
 #	endif
+#else
+#	if defined(WITH_CLIENT_GPUJPEG)
+#		include <cuda_runtime.h>
+#	endif
 #endif
 
 #include "renderengine_tcp.h"
