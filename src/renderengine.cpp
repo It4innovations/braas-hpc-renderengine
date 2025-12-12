@@ -63,6 +63,11 @@ bool USE_GPUJPEG = true;
 bool USE_GPUJPEG = false;
 #endif
 
+#define CHECK_MAGIC_NUMBER(data) \
+	if ((data).magic_number != 999) { \
+		std::cerr << "Magic number mismatch! (" << __FILE__ << ":" << __LINE__ << ")" << std::endl; \
+	} \
+
 //////////////////////////
 
 #ifdef _WIN32
@@ -662,6 +667,7 @@ int recv_cam_data()
 
 	//tcpConnection.recv_data_data((char*)&g_renderengine_data, sizeof(renderengine_data));
 	tcpConnection.recv_data_data((char*)&g_renderengine_data_recv, sizeof(renderengine_data));
+	CHECK_MAGIC_NUMBER(g_renderengine_data_recv);
 
 	int width = g_renderengine_data_recv.width;
 	int height = g_renderengine_data_recv.height;

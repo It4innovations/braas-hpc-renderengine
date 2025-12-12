@@ -20,6 +20,8 @@
 #define __RENDERENGINE_DATA_H__
 
 typedef struct renderengine_cam {
+	int magic_number = 999; // ack
+
 	float transform_inverse_view_matrix[12];
 
 	float lens;
@@ -43,6 +45,8 @@ typedef struct renderengine_cam {
 }renderengine_cam;
 
 typedef struct renderengine_data {
+	int magic_number = 999; // ack
+
 	//char filename[1024];
 	int width, height;
 	//int step_samples;
