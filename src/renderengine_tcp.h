@@ -99,11 +99,11 @@ public:
 	virtual void client_close();
 	virtual void server_close();
 
-	virtual void send_data_cam(char* data, size_t size, bool ack = true);
-	virtual void recv_data_cam(char* data, size_t size, bool ack = true);
+	virtual void send_data_cam(char* data, size_t size, char ack = 0);
+	virtual void recv_data_cam(char* data, size_t size, char ack = 0);
 
-	virtual void send_data_data(char* data, size_t size, bool ack = true);
-	virtual void recv_data_data(char* data, size_t size, bool ack = true);
+	virtual void send_data_data(char* data, size_t size, char ack = 0);
+	virtual void recv_data_data(char* data, size_t size, char ack = 0);
 
 	virtual void send_gpujpeg(char* dmem, char* pixels, int width, int height, int format);
 	virtual void recv_gpujpeg(char* dmem, char* pixels, int width, int height, int format);

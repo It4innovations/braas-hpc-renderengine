@@ -617,7 +617,7 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 	}
 }
 
-void TcpConnection::send_data_cam(char* data, size_t size, bool ack_enabled)
+void TcpConnection::send_data_cam(char* data, size_t size, char ack_enabled)
 {
 	DEBUG_PRINT(size);
 
@@ -647,14 +647,14 @@ void TcpConnection::send_data_cam(char* data, size_t size, bool ack_enabled)
 	if (ack_enabled) {
 		char ack = 0;
 		KERNEL_SOCKET_RECV_IGNORE_RC(g_client_id_cam[g_port_offset], &ack, 1);
-		if (ack != 0) {
-			printf("error in send_data_cam\n");
+		if (ack != ack_enabled) {
+			printf("error in send_data_cam (ack != ack_enabled): %d != %d\n", (int)ack, (int)ack_enabled);
 			g_connection_error = 1;
 		}
 	}
 }
 
-void TcpConnection::send_data_data(char* data, size_t size, bool ack_enabled)
+void TcpConnection::send_data_data(char* data, size_t size, char ack_enabled)
 {
 	DEBUG_PRINT(size);
 
@@ -684,14 +684,14 @@ void TcpConnection::send_data_data(char* data, size_t size, bool ack_enabled)
 	if (ack_enabled) {
 		char ack = 0;
 		KERNEL_SOCKET_RECV_IGNORE_RC(g_client_id_data[g_port_offset], &ack, 1);
-		if (ack != 0) {
-			printf("error in g_client_id_data\n");
+		if (ack != ack_enabled) {
+			printf("error in send_data_data (ack != ack_enabled): %d != %d\n", (int)ack, (int)ack_enabled);
 			g_connection_error = 1;
 		}
 	}
 }
 
-void TcpConnection::recv_data_cam(char* data, size_t size, bool ack_enabled)
+void TcpConnection::recv_data_cam(char* data, size_t size, char ack_enabled)
 {
 	DEBUG_PRINT(size);
 
@@ -719,16 +719,11 @@ void TcpConnection::recv_data_cam(char* data, size_t size, bool ack_enabled)
 	}
 
 	if (ack_enabled) {
-		char ack = 0;
-		KERNEL_SOCKET_SEND_IGNORE_RC(g_client_id_cam[g_port_offset], &ack, 1);
-		if (ack != 0) {
-			printf("error in g_client_id_cam\n");
-			g_connection_error = 1;
-		}
+		KERNEL_SOCKET_SEND_IGNORE_RC(g_client_id_cam[g_port_offset], &ack_enabled, 1);
 	}
 }
 
-void TcpConnection::recv_data_data(char* data, size_t size, bool ack_enabled)
+void TcpConnection::recv_data_data(char* data, size_t size, char ack_enabled)
 {
 	DEBUG_PRINT(size);
 
@@ -756,12 +751,7 @@ void TcpConnection::recv_data_data(char* data, size_t size, bool ack_enabled)
 	}
 
 	if (ack_enabled) {
-		char ack = 0;
-		KERNEL_SOCKET_SEND_IGNORE_RC(g_client_id_data[g_port_offset], &ack, 1);
-		if (ack != 0) {
-			printf("error in g_client_id_data\n");
-			g_connection_error = 1;
-		}
+		KERNEL_SOCKET_SEND_IGNORE_RC(g_client_id_data[g_port_offset], &ack_enabled, 1);
 	}
 }
 
