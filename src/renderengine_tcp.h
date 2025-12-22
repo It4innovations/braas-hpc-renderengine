@@ -20,6 +20,7 @@
 #define __RENDERENGINE_TCP_H__
 
 #include <stdlib.h>
+#include <string>
 #include "renderengine_api.h"
 
 #    ifdef _WIN32

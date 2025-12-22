@@ -24,8 +24,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(WITH_CLIENT_GPUJPEG "Enable GPUJPEG" OFF)
 option(WITH_CLIENT_EPOXY "Enable EPOXY" OFF)
 
+# GPU backend options for GPUJPEG
+option(GPUJPEG_USE_HIP "Build GPUJPEG with HIP backend for AMD GPUs" OFF)
+option(GPUJPEG_USE_SYCL "Build GPUJPEG with SYCL backend for Intel/other GPUs" OFF)
+
 if(WITH_CLIENT_GPUJPEG)
-    find_package(CUDA REQUIRED)
+    # Only require CUDA if not using HIP or SYCL
+    if(NOT GPUJPEG_USE_HIP AND NOT GPUJPEG_USE_SYCL)
+        find_package(CUDA REQUIRED)
+    endif()
+    
     #set(GPUJPEG_INCLUDE_DIR "" CACHE PATH "")
     #set(GPUJPEG_LIBRARIES "" CACHE FILEPATH "")
     #find_package(GPUJPEG REQUIRED)

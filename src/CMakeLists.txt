@@ -17,6 +17,22 @@
 #####################################################################################################################
 if(WITH_CLIENT_GPUJPEG)
 	add_definitions(-DWITH_CLIENT_GPUJPEG)
+	
+	# Add HIP platform definition if using HIP backend
+	if(GPUJPEG_USE_HIP)
+		add_definitions(-D__HIP_PLATFORM_AMD__)
+		# Set HIP path for includes and libraries
+		if(NOT DEFINED ROCM_PATH)
+			if(NOT DEFINED ENV{ROCM_PATH})
+				set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
+			else()
+				set(ROCM_PATH $ENV{ROCM_PATH} CACHE PATH "Path to ROCm installation")
+			endif()
+		endif()
+		# Use DWARF-2 to avoid compatibility issues with older GNU assemblers
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -gdwarf-2")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gdwarf-2")
+	endif()
 endif()
 
 if(WITH_CLIENT_EPOXY)
@@ -29,10 +45,17 @@ set(INC
 	 .
      ${EPOXY_INCLUDE_DIR}
      #${GPUJPEG_INCLUDE_DIR}
-     ${CUDA_INCLUDE_DIRS}
-     #${OPENGL_INCLUDE_DIR}
      ../submodules/braas-hpc-gpujpeg
 )
+
+# Add GPU backend specific includes
+if(WITH_CLIENT_GPUJPEG)
+	if(GPUJPEG_USE_HIP)
+		list(APPEND INC ${ROCM_PATH}/include)
+	else()
+		list(APPEND INC ${CUDA_INCLUDE_DIRS})
+	endif()
+endif()
 
 set(SRC
 	renderengine.cpp
@@ -57,12 +80,28 @@ if(WIN32)
 endif()
 
 target_link_libraries(braas_hpc_renderengine 
-    ${CUDA_LIBRARIES}
-    ${CUDA_CUDA_LIBRARY} # For CUDA Driver API
     ${OPENGL_LIBRARIES}
     ${EPOXY_LIBRARIES}
     # OpenMP::OpenMP_CXX
 )
+
+# Add GPU backend specific libraries
+if(WITH_CLIENT_GPUJPEG)
+	if(GPUJPEG_USE_HIP)
+		# Link against HIP runtime library directly
+		find_library(HIP_LIBRARY amdhip64 HINTS ${ROCM_PATH}/lib)
+		if(HIP_LIBRARY)
+			target_link_libraries(braas_hpc_renderengine ${HIP_LIBRARY})
+		else()
+			message(WARNING "HIP library not found in ${ROCM_PATH}/lib")
+		endif()
+	else()
+		target_link_libraries(braas_hpc_renderengine 
+			${CUDA_LIBRARIES}
+			${CUDA_CUDA_LIBRARY}
+		)
+	endif()
+endif()
 
 target_include_directories(braas_hpc_renderengine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

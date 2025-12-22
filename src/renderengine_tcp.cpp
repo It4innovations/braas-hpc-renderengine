@@ -1072,9 +1072,22 @@ void TcpConnection::yuv_i420_to_rgb_half(
 #ifdef WITH_CLIENT_GPUJPEG
 
 //#define gpujpeg_decoder_output_set_custom_cuda
+#if defined(__HIP_PLATFORM_AMD__)
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime.h>
+#endif
 
 bool is_device_ptr(const void* ptr) {
+#if defined(__HIP_PLATFORM_AMD__)
+	hipPointerAttribute_t attr;
+	hipError_t err = hipPointerGetAttributes(&attr, ptr);
+
+	if (err != hipSuccess)
+		return false;  // Not a recognized HIP pointer
+
+	return attr.type == hipMemoryTypeDevice || attr.type == hipMemoryTypeUnified;
+#else
 	cudaPointerAttributes attr;
 	cudaError_t err = cudaPointerGetAttributes(&attr, ptr);
 
@@ -1082,6 +1095,7 @@ bool is_device_ptr(const void* ptr) {
 		return false;  // Not a recognized CUDA pointer
 
 	return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
+#endif
 }
 
 int TcpConnection::gpujpeg_encode(int width,

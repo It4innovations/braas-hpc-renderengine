@@ -25,12 +25,21 @@
 #ifdef WITH_CLIENT_EPOXY
 #	include <epoxy/gl.h>
 #	if defined(WITH_CLIENT_GPUJPEG)
-#		include <cuda_gl_interop.h>
-#		include <cuda_runtime.h>
+#		if defined(__HIP_PLATFORM_AMD__)
+#			include <hip/hip_runtime.h>
+#			include <hip/hip_gl_interop.h>
+#		else
+#			include <cuda_gl_interop.h>
+#			include <cuda_runtime.h>
+#		endif
 #	endif
 #else
 #	if defined(WITH_CLIENT_GPUJPEG)
-#		include <cuda_runtime.h>
+#		if defined(__HIP_PLATFORM_AMD__)
+#			include <hip/hip_runtime.h>
+#		else
+#			include <cuda_runtime.h>
+#		endif
 #	endif
 #endif
 
@@ -184,14 +193,47 @@ void check_exit()
 
 #if defined(WITH_CLIENT_GPUJPEG)
 
+// GPU abstraction macros
+#if defined(__HIP_PLATFORM_AMD__)
+	#define gpuError_t hipError_t
+	#define gpuSuccess hipSuccess
+	#define gpuSetDevice hipSetDevice
+	#define gpuGetErrorName hipGetErrorName
+	#define gpuGetErrorString hipGetErrorString
+	#define gpuGLRegisterBufferObject hipGLRegisterBufferObject
+	#define gpuMalloc hipMalloc
+	#define gpuFree hipFree
+	#define gpuFreeHost hipHostFree
+	#define gpuHostAlloc hipHostMalloc
+	#define gpuHostAllocMapped hipHostMallocMapped
+	#define gpuMemcpy hipMemcpy
+	#define gpuMemcpyHostToDevice hipMemcpyHostToDevice
+	#define gpuMemcpyDeviceToDevice hipMemcpyDeviceToDevice
+#else
+	#define gpuError_t cudaError_t
+	#define gpuSuccess cudaSuccess
+	#define gpuSetDevice cudaSetDevice
+	#define gpuGetErrorName cudaGetErrorName
+	#define gpuGetErrorString cudaGetErrorString
+	#define gpuGLRegisterBufferObject cudaGLRegisterBufferObject
+	#define gpuMalloc cudaMalloc
+	#define gpuFree cudaFree
+	#define gpuFreeHost cudaFreeHost
+	#define gpuHostAlloc cudaHostAlloc
+	#define gpuHostAllocMapped cudaHostAllocMapped
+	#define gpuMemcpy cudaMemcpy
+	#define gpuMemcpyHostToDevice cudaMemcpyHostToDevice
+	#define gpuMemcpyDeviceToDevice cudaMemcpyDeviceToDevice
+#endif
+
 #define cuda_assert(stmt) \
   { \
-    if (stmt != cudaSuccess) { \
+    if (stmt != gpuSuccess) { \
       char err[1024]; \
       sprintf(err, \
               "CUDA error: %s: %s in %s, line %d", \
-              cudaGetErrorName(stmt), \
-              cudaGetErrorString(stmt), \
+              gpuGetErrorName(stmt), \
+              gpuGetErrorString(stmt), \
               #stmt, \
               __LINE__); \
       std::string message(err); \
@@ -201,17 +243,17 @@ void check_exit()
   } \
   (void)0
 
-bool gpu_error_(cudaError_t result, const std::string& stmt)
+bool gpu_error_(gpuError_t result, const std::string& stmt)
 {
-	if (result == cudaSuccess)
+	if (result == gpuSuccess)
 		return false;
 
 	char err[1024];
 	sprintf(err,
 		"CUDA error at %s: %s: %s",
 		stmt.c_str(),
-		cudaGetErrorName(result),
-		cudaGetErrorString(result));
+		gpuGetErrorName(result),
+		gpuGetErrorString(result));
 	std::string message(err);
 	fprintf(stderr, "%s\n", message.c_str());
 	return true;
@@ -232,7 +274,7 @@ void gpu_error_message(const std::string& message)
 void cuda_set_device()
 {
 #if defined(WITH_CLIENT_GPUJPEG)
-	cuda_assert(cudaSetDevice(0));
+	cuda_assert(gpuSetDevice(0));
 #endif
 }
 
@@ -341,14 +383,14 @@ void setup_texture(bool use_gl)
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 #if defined(WITH_CLIENT_GPUJPEG)
-		cuda_assert(cudaGLRegisterBufferObject(g_bufferId));
+		cuda_assert(gpuGLRegisterBufferObject(g_bufferId));
 #endif
 		//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 	}
 #endif
 
 #if defined(WITH_CLIENT_GPUJPEG)
-	cuda_assert(cudaMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
+	cuda_assert(gpuMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
 	printf("Setup texture %d x %d, Pointer: %lld (Size: %lld)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 #endif
 }
@@ -369,7 +411,7 @@ void free_texture(bool use_gl)
 
 #if defined(WITH_CLIENT_GPUJPEG)
 	printf("Free texture Pointer: %lld\n", (size_t)g_pixels_buf_recv_d);
-	cuda_assert(cudaFree(g_pixels_buf_recv_d));
+	cuda_assert(gpuFree(g_pixels_buf_recv_d));
 #endif	
 
 #ifdef WITH_CLIENT_EPOXY
@@ -532,7 +574,7 @@ void resize_internal(int width, int height, bool use_gl)
 	{		
 		free_texture(use_gl);
 #if defined(WITH_CLIENT_GPUJPEG)
-		cuda_assert(cudaFreeHost(g_pixels_buf));
+		cuda_assert(gpuFreeHost(g_pixels_buf));
 #else
 		free(g_pixels_buf);
 #endif
@@ -542,7 +584,7 @@ void resize_internal(int width, int height, bool use_gl)
 	g_renderengine_data.height = height;
 
 #if defined(WITH_CLIENT_GPUJPEG)
-	cuda_assert(cudaHostAlloc((void**)&g_pixels_buf, (size_t)width * height * PIX_SIZE * 4, cudaHostAllocMapped));
+	cuda_assert(gpuHostAlloc((void**)&g_pixels_buf, (size_t)width * height * PIX_SIZE * 4, gpuHostAllocMapped));
 #else
 	g_pixels_buf = (unsigned char*)malloc((size_t)width * height * PIX_SIZE * 4);
 #endif
@@ -588,10 +630,10 @@ int recv_pixels_data()
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
 
 #if defined(WITH_CLIENT_GPUJPEG)
-		cuda_assert(cudaMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
+		cuda_assert(gpuMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
 			g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
-			cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+			gpuMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 #endif
 
 		//current_samples = ((int*)g_pixels_buf)[0];
@@ -943,21 +985,21 @@ void set_pixels(void* pixels, bool device)
 	if (device) {
 		//printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
 #if defined(WITH_CLIENT_GPUJPEG)
-		cuda_assert(cudaMemcpy(
+		cuda_assert(gpuMemcpy(
 			g_pixels_buf_recv_d,
 			pixels,
 			(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
-			cudaMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+			gpuMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 #endif
 	}
 	else {
 		if (USE_GPUJPEG) {
 #if defined(WITH_CLIENT_GPUJPEG)
-			cuda_assert(cudaMemcpy(
+			cuda_assert(gpuMemcpy(
 				g_pixels_buf_recv_d,
 				pixels,
 				(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
-				cudaMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+				gpuMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
 #endif
 		}
 		else {
