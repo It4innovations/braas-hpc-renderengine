@@ -33,6 +33,11 @@ if(WITH_CLIENT_GPUJPEG)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -gdwarf-2")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gdwarf-2")
 	endif()
+	
+	# Add SYCL definition if using SYCL backend
+	if(GPUJPEG_USE_SYCL)
+		add_definitions(-DGPUJPEG_USE_SYCL)
+	endif()
 endif()
 
 if(WITH_CLIENT_EPOXY)

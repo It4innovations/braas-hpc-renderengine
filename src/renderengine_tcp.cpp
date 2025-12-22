@@ -1074,6 +1074,8 @@ void TcpConnection::yuv_i420_to_rgb_half(
 //#define gpujpeg_decoder_output_set_custom_cuda
 #if defined(__HIP_PLATFORM_AMD__)
 #include <hip/hip_runtime.h>
+#elif defined(GPUJPEG_USE_SYCL)
+// SYCL backend - no runtime header needed here
 #else
 #include <cuda_runtime.h>
 #endif
@@ -1087,6 +1089,11 @@ bool is_device_ptr(const void* ptr) {
 		return false;  // Not a recognized HIP pointer
 
 	return attr.type == hipMemoryTypeDevice || attr.type == hipMemoryTypeUnified;
+#elif defined(GPUJPEG_USE_SYCL)
+	// For SYCL, we don't have a straightforward way to check if a pointer is device memory
+	// For now, assume all pointers could be device pointers
+	// TODO: Implement proper SYCL pointer attribute checking if needed
+	return false;
 #else
 	cudaPointerAttributes attr;
 	cudaError_t err = cudaPointerGetAttributes(&attr, ptr);
