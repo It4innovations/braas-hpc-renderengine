@@ -71,6 +71,10 @@ protected:
 	sockaddr_in g_server_sockaddr_data[MAX_CONNECTIONS];
 
 	bool g_is_server = true;
+	int g_port_cam = 7001;
+	int g_port_data = 7000;
+	std::string g_server_cam = "localhost";
+	std::string g_server_data = "localhost";
 
 	int frame = 0;
 
@@ -156,14 +160,14 @@ protected:
 		int format,
 		uint8_t* input_image,
 		uint8_t* image_compressed,
-		int& image_compressed_size);
+		size_t& image_compressed_size);
 
 	int gpujpeg_decode(int width,
 		int height,
 		int format,
 		uint8_t* input_image,
 		uint8_t* image_compressed,
-		int& image_compressed_size);
+		size_t image_compressed_size);
 #endif
 };
 

@@ -443,8 +443,17 @@ void TcpConnection::init_sockets_cam(const char* server, int port_cam, int port_
 		if (g_is_server) {
 
 			const char* env_p_port_cam = std::getenv("SOCKET_SERVER_PORT_CAM");
-			if (port_cam == 0) {
-				port_cam = (env_p_port_cam) ? atoi(env_p_port_cam) : 7000;
+			if (port_cam == 0 && env_p_port_cam) {
+				port_cam = atoi(env_p_port_cam);
+			}
+
+			if (port_cam != 0) {
+				g_port_cam = port_cam;
+			} 
+			
+			if (g_port_cam == 0) {
+				printf("TcpConnection::init_sockets_cam: port_cam is not set!!!");
+				return;
 			}
 
 			//#    if 0  // ndef _WIN32
@@ -452,7 +461,7 @@ void TcpConnection::init_sockets_cam(const char* server, int port_cam, int port_
 			//#    endif
 					//for (int tid = 0; tid < SOCKET_CONNECTIONS; tid++) {
 						// int tid = omp_get_thread_num();
-			server_create(port_cam + g_port_offset,
+			server_create(g_port_cam + g_port_offset,
 				g_server_id_cam[g_port_offset],
 				g_client_id_cam[g_port_offset],
 				g_server_sockaddr_cam[g_port_offset],
@@ -471,21 +480,25 @@ void TcpConnection::init_sockets_cam(const char* server, int port_cam, int port_
 		else {
 
 			const char* env_p_port_cam = std::getenv("SOCKET_SERVER_PORT_CAM");
-			if (port_cam == 0) {
-				// port_cam = atoi(env_p_port_cam);
-				port_cam = (env_p_port_cam) ? atoi(env_p_port_cam) : 7000;
+			if (port_cam == 0 && env_p_port_cam) {
+				port_cam = atoi(env_p_port_cam);
+			}
+
+			if (port_cam != 0) {
+				g_port_cam = port_cam;
+			}
+
+			if (g_port_cam == 0) {
+				printf("TcpConnection::init_sockets_cam: port_cam is not set!!!");
+				return;
 			}
 
 			const char* env_p_name_cam = std::getenv("SOCKET_SERVER_NAME_CAM");
-			char server_temp[1024];
-			strcpy(server_temp, "localhost");
-
-			if (env_p_name_cam != NULL) {
-				strcpy(server_temp, env_p_name_cam);
-			}
-
 			if (server != NULL) {
-				strcpy(server_temp, server);
+				g_server_cam = std::string(server);
+			}
+			else if (env_p_name_cam != NULL) {
+				g_server_cam = std::string(env_p_name_cam);
 			}
 
 			//#    if 0  // ndef _WIN32
@@ -493,7 +506,7 @@ void TcpConnection::init_sockets_cam(const char* server, int port_cam, int port_
 			//#    endif
 					//for (int tid = 0; tid < SOCKET_CONNECTIONS; tid++) {
 						// int tid = omp_get_thread_num();
-			client_create(server_temp, port_cam + g_port_offset, g_client_id_cam[g_port_offset], g_client_sockaddr_cam[g_port_offset]);
+			client_create(g_server_cam.c_str(), g_port_cam + g_port_offset, g_client_id_cam[g_port_offset], g_client_sockaddr_cam[g_port_offset]);
 			//}
 
 #    ifndef WITH_CLIENT_RENDERENGINE_SENDER
@@ -524,21 +537,28 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 		if (!g_is_server) {
 
 			const char* env_p_port_data = std::getenv("SOCKET_SERVER_PORT_DATA");
-			if (port == 0) {
+			if (port == 0 && env_p_port_data) {
 				// port = atoi(env_p_port_data);
-				port = (env_p_port_data) ? atoi(env_p_port_data) : 7001;
+				port = atoi(env_p_port_data);
+			}
+
+			if (port != 0) {
+				g_port_data = port;
+			}
+
+			if (g_port_data == 0) {
+				printf("TcpConnection::init_sockets_data: port_data is not set!!!");
+				return;
 			}
 
 			const char* env_p_name_data = std::getenv("SOCKET_SERVER_NAME_DATA");
-			char server_temp[1024];
-			strcpy(server_temp, "localhost");
-
-			if (env_p_name_data != NULL) {
-				strcpy(server_temp, env_p_name_data);
-			}
+			//char server_temp[1024];
+			//strcpy(server_temp, "localhost");
 
 			if (server != NULL) {
-				strcpy(server_temp, server);
+				g_server_data = std::string(server);
+			} else if (env_p_name_data != NULL) {
+				g_server_data = std::string(env_p_name_data);
 			}
 
 			//#    ifdef WITH_SOCKET_ONLY_DATA
@@ -556,7 +576,7 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 			//#      endif
 					//for (int tid = 0; tid < SOCKET_CONNECTIONS; tid++) {
 						// int tid = omp_get_thread_num();
-			client_create(server_temp, port + g_port_offset, g_client_id_data[g_port_offset], g_client_sockaddr_data[g_port_offset]);
+			client_create(g_server_data.c_str(), g_port_data + g_port_offset, g_client_id_data[g_port_offset], g_client_sockaddr_data[g_port_offset]);
 			//}
 	//#    endif
 			// char ack = -1;
@@ -567,9 +587,18 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 		else {
 
 			const char* env_p_port_data = std::getenv("SOCKET_SERVER_PORT_DATA");
-			if (port == 0) {
+			if (port == 0 && env_p_port_data) {
 				// port = atoi(env_p_port_data);
-				port = (env_p_port_data) ? atoi(env_p_port_data) : 7001;
+				port = atoi(env_p_port_data);
+			}
+
+			if (port != 0) {
+				g_port_data = port;
+			}
+
+			if (g_port_data == 0) {
+				printf("TcpConnection::init_sockets_data: port_data is not set!!!");
+				return;
 			}
 
 			//#    if 0// defined(WITH_SOCKET_ONLY_DATA)
@@ -603,7 +632,7 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 			//#      endif
 					//for (int tid = 0; tid < SOCKET_CONNECTIONS; tid++) {
 						// int tid = omp_get_thread_num();
-			server_create(port + g_port_offset,
+			server_create(g_port_data + g_port_offset,
 				g_server_id_data[g_port_offset],
 				g_client_id_data[g_port_offset],
 				g_server_sockaddr_data[g_port_offset],
@@ -1060,7 +1089,7 @@ int TcpConnection::gpujpeg_encode(int width,
 	int format,
 	uint8_t* input_image,
 	uint8_t* image_compressed,
-	int& image_compressed_size)
+	size_t& image_compressed_size)
 {
 	// set default encode parametrs, after calling, parameters can be tuned (eg. quality)
 	struct gpujpeg_parameters param;
@@ -1082,17 +1111,17 @@ int TcpConnection::gpujpeg_encode(int width,
 	gpujpeg_image_set_default_parameters(&param_image);
 	param_image.width = width;
 	param_image.height = height;
-	param_image.comp_count = 4;
+	//param_image.comp_count = 4;
 	param_image.color_space = GPUJPEG_RGB; // GPUJPEG_YCBCR_BT709;     // GPUJPEG_RGB;
 	//param_image.pixel_format = GPUJPEG_444_U8_P012A; // GPUJPEG_444_U8_P0P1P2;  // GPUJPEG_420_U8_P0P1P2; GPUJPEG_RGB, GPUJPEG_444_U8_P012A
 	if (format == 8) {
-		param_image.pixel_format = GPUJPEG_444_U8_P012A;
+		param_image.pixel_format = GPUJPEG_4444_U8_P0123;
 	}
 	else if (format == 16) {
-		param_image.pixel_format = GPUJPEG_444_U16_P012O;
+		//param_image.pixel_format = GPUJPEG_444_U16_P012O;
 	}
 	else if (format == 32) {
-		param_image.pixel_format = GPUJPEG_444_F32_P012O;
+		//param_image.pixel_format = GPUJPEG_444_F32_P012O;
 	}
 	else {
 		printf("gpujpeg_encode: unsupported format [8,16,32] %d\n", format);
@@ -1133,7 +1162,7 @@ int TcpConnection::gpujpeg_decode(int width,
 	int format,
 	uint8_t* input_image,
 	uint8_t* image_compressed,
-	int& image_compressed_size)
+	size_t image_compressed_size)
 {
 	// create decoder
 	if (g_decoder == NULL) {
@@ -1144,13 +1173,13 @@ int TcpConnection::gpujpeg_decode(int width,
 
 	//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U8_P012Z);
 	if (format == 8) { //U8 - RGB
-		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U8_P012A); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
+		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U8_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
 	else if (format == 16) { //U16 - RGB
-		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U16_P012O); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
+		//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U16_P012O); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
 	else if (format == 32) { //FLOAT - RGB
-		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_F32_P012O); //GPUJPEG_444_U8_P012Z
+		//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_F32_P012O); //GPUJPEG_444_U8_P012Z
 	}
 	else {
 		printf("gpujpeg_decode: unsupported format [8,16,32] %d\n", format);
@@ -1195,10 +1224,10 @@ void TcpConnection::send_gpujpeg(char* dmem, char* pixels, int width, int height
 {
 #ifdef WITH_CLIENT_GPUJPEG
 	// double t0 = omp_get_wtime();
-	int frame_size = 0;
+	size_t frame_size = 0;
 	gpujpeg_encode(width, height, format, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
 	// double t1 = omp_get_wtime();
-	send_data_data((char*)&frame_size, sizeof(int));
+	send_data_data((char*)&frame_size, sizeof(frame_size));
 	send_data_data((char*)g_image_compressed, frame_size);
 	// double t2 = omp_get_wtime();
 	//printf("send_gpujpeg: %f, %f, fps: %f, %f\n", t1 - t0, t2 - t1, 1.0/(t1 - t0), 1.0/(t2 - t1));
@@ -1208,9 +1237,9 @@ void TcpConnection::send_gpujpeg(char* dmem, char* pixels, int width, int height
 void TcpConnection::recv_gpujpeg(char* dmem, char* pixels, int width, int height, int format)
 {
 #ifdef WITH_CLIENT_GPUJPEG
-	int frame_size = 0;
+	size_t frame_size = 0;
 	//double t0 = omp_get_wtime();
-	recv_data_data((char*)&frame_size, sizeof(int));
+	recv_data_data((char*)&frame_size, sizeof(frame_size));
 	recv_data_data((char*)pixels, frame_size);
 	//double t1 = omp_get_wtime();
 	gpujpeg_decode(width, height, format, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
