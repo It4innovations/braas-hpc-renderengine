@@ -38,7 +38,7 @@
 #		if defined(__HIP_PLATFORM_AMD__)
 #			include <hip/hip_runtime.h>
 #		elif defined(GPUJPEG_USE_SYCL)
-#			// SYCL backend - no runtime header needed here
+			// SYCL backend - no runtime header needed here
 #		else
 #			include <cuda_runtime.h>
 #		endif
@@ -213,7 +213,7 @@ void check_exit()
 	#define gpuMemcpyDeviceToDevice hipMemcpyDeviceToDevice
 #elif defined(GPUJPEG_USE_SYCL)
 	// For SYCL, use the gpujpeg device compatibility layer
-	// Forward declare the functions we need
+	// Forward declare the functions we need from gpujpeg
 	typedef int gpuError_t;
 	#define gpuSuccess 0
 	extern "C" {
@@ -221,16 +221,19 @@ void check_exit()
 		gpuError_t gpuMalloc(void** ptr, size_t size);
 		gpuError_t gpuFree(void* ptr);
 		gpuError_t gpuFreeHost(void* ptr);
-		gpuError_t gpuHostAlloc(void** ptr, size_t size, unsigned int flags);
+		gpuError_t gpuMallocHost(void** ptr, size_t size);
 		gpuError_t gpuMemcpy(void* dst, const void* src, size_t count, int kind);
 		const char* gpuGetErrorString(gpuError_t error);
 	}
 	// Define any missing macros for SYCL
 	#define gpuGetErrorName(err) "SYCL_ERROR"
 	#define gpuGLRegisterBufferObject(buffer) (0)
+	// Use gpuMallocHost as the equivalent of gpuHostAlloc for SYCL
+	#define gpuHostAlloc(ptr, size, flags) gpuMallocHost(ptr, size)
 	#define gpuHostAllocMapped 0
-	extern int gpuMemcpyHostToDevice;
-	extern int gpuMemcpyDeviceToDevice;
+	// Define memory copy kinds as constants (matching gpujpeg_device_compat.h enum values)
+	#define gpuMemcpyHostToDevice 1
+	#define gpuMemcpyDeviceToDevice 3
 #else
 	#define gpuError_t cudaError_t
 	#define gpuSuccess cudaSuccess
