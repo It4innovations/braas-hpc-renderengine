@@ -1139,10 +1139,10 @@ int TcpConnection::gpujpeg_encode(int width,
 		param_image.pixel_format = GPUJPEG_4444_U8_P0123;
 	}
 	else if (format == 16) {
-		//param_image.pixel_format = GPUJPEG_444_U16_P012O;
+		param_image.pixel_format = GPUJPEG_4444_U16_P0123;
 	}
 	else if (format == 32) {
-		//param_image.pixel_format = GPUJPEG_444_F32_P012O;
+		param_image.pixel_format = GPUJPEG_4444_F32_P0123;
 	}
 	else {
 		printf("gpujpeg_encode: unsupported format [8,16,32] %d\n", format);
@@ -1197,10 +1197,10 @@ int TcpConnection::gpujpeg_decode(int width,
 		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U8_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
 	else if (format == 16) { //U16 - RGB
-		//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U16_P012O); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
+		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U16_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
 	else if (format == 32) { //FLOAT - RGB
-		//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_F32_P012O); //GPUJPEG_444_U8_P012Z
+		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_F32_P0123); //GPUJPEG_444_U8_P012Z
 	}
 	else {
 		printf("gpujpeg_decode: unsupported format [8,16,32] %d\n", format);
