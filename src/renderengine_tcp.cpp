@@ -1125,7 +1125,10 @@ int TcpConnection::gpujpeg_encode(int width,
 		param.quality = g_compressed_quality;
 	}
 
-	//param.verbose = 2;
+	const char* gpujpeg_verbose_env = getenv("GPUJPEG_VERBOSE");
+	if (gpujpeg_verbose_env != NULL) {
+		param.verbose = atoi(gpujpeg_verbose_env);
+	}
 
 	// here we set image parameters
 	struct gpujpeg_image_parameters param_image;
