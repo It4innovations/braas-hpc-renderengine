@@ -416,7 +416,7 @@ void setup_texture(bool use_gl)
 
 #if defined(WITH_CLIENT_GPUJPEG)
 	cuda_assert(gpuMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
-	printf("Setup texture %d x %d, Pointer: %lld (Size: %lld)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
+	printf("Setup texture %d x %d, Pointer: %zu (Size: %zu)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 #endif
 }
 
@@ -435,7 +435,7 @@ void free_texture(bool use_gl)
 #endif
 
 #if defined(WITH_CLIENT_GPUJPEG)
-	printf("Free texture Pointer: %lld\n", (size_t)g_pixels_buf_recv_d);
+	printf("Free texture Pointer: %zu\n", (size_t)g_pixels_buf_recv_d);
 	cuda_assert(gpuFree(g_pixels_buf_recv_d));
 #endif	
 
