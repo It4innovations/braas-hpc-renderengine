@@ -62,6 +62,52 @@
 #include <time.h>
 #endif
 
+#include <cstdint>
+#include <type_traits>
+
+static_assert(std::is_standard_layout_v<renderengine_cam>,
+	"renderengine_cam must be standard layout");
+
+static_assert(std::is_trivially_copyable_v<renderengine_cam>,
+	"renderengine_cam must be trivially copyable");
+
+static_assert(alignof(renderengine_cam) == 16,
+	"renderengine_cam must be 16-byte aligned");
+
+static_assert(sizeof(renderengine_cam) % 16 == 0,
+	"renderengine_cam size must be multiple of 16");
+
+static_assert(std::is_standard_layout_v<renderengine_data>,
+	"renderengine_data must be standard layout");
+
+static_assert(std::is_trivially_copyable_v<renderengine_data>,
+	"renderengine_data must be trivially copyable");
+
+static_assert(alignof(renderengine_data) == 16,
+	"renderengine_data must be 16-byte aligned");
+
+static_assert(sizeof(renderengine_data) % 16 == 0,
+	"renderengine_data size must be multiple of 16");
+
+static_assert(alignof(renderengine_data) == 16,
+	"renderengine_data must be 16-byte aligned");
+
+static_assert(std::is_standard_layout_v<BRaaSHPCDataState>,
+	"BRaaSHPCDataState must be standard layout");
+
+static_assert(std::is_trivially_copyable_v<BRaaSHPCDataState>,
+	"BRaaSHPCDataState must be trivially copyable");
+
+static_assert(alignof(BRaaSHPCDataState) == 16,
+	"BRaaSHPCDataState must be 16-byte aligned");
+
+static_assert(sizeof(BRaaSHPCDataState) % 16 == 0,
+	"BRaaSHPCDataState size must be multiple of 16");
+
+static_assert(alignof(BRaaSHPCDataState) == 16,
+	"BRaaSHPCDataState must be 16-byte aligned");
+
+
 #define TCP_PIX_SIZE_F32 sizeof(float)
 #define TCP_PIX_SIZE_U16 sizeof(unsigned short)
 #define TCP_PIX_SIZE_U8 sizeof(unsigned char)

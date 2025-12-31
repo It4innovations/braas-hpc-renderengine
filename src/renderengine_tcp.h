@@ -52,7 +52,7 @@
 #define MAX_CONNECTIONS 100
 
 
-class BRAAS_HPC_EXPORT_DLL TcpConnection {
+class TcpConnection {
 protected:
 	int g_port_offset = -1;
 

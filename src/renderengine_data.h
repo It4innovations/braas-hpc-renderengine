@@ -19,7 +19,7 @@
 #ifndef __RENDERENGINE_DATA_H__
 #define __RENDERENGINE_DATA_H__
 
-typedef struct renderengine_cam {
+struct alignas(16) renderengine_cam {
 	int magic_number = 999; // ack
 
 	float transform_inverse_view_matrix[12];
@@ -42,9 +42,12 @@ typedef struct renderengine_cam {
 	float view_camera_offset[2];
 	int use_view_camera;
 	int view_perspective;
-}renderengine_cam;
 
-typedef struct renderengine_data {
+	// Explicit padding to preserve 16-byte alignment
+	int _pad[2];
+};
+
+struct alignas(16) renderengine_data {
 	int magic_number = 999; // ack
 
 	//char filename[1024];
@@ -53,9 +56,8 @@ typedef struct renderengine_data {
 	int reset;
 	int frame;
 
-	struct renderengine_cam cam;
-
-}renderengine_data;
+	renderengine_cam cam;
+};
 
 //typedef struct BRaaSHPCDataRender {
 //	float colorMap[4 * 128];
@@ -63,12 +65,12 @@ typedef struct renderengine_data {
 //	float baseDensity;
 //}BRaaSHPCDataRender;
 
-typedef struct BRaaSHPCDataState {
+struct alignas(16) BRaaSHPCDataState {
 	float world_bounds_spatial_lower[3];
 	float world_bounds_spatial_upper[3];
 	float scalars_range[2];
 	int samples;
 	float fps;
-} BRaaSHPCDataState;
+};
 
 #endif
