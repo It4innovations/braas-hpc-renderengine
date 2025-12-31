@@ -22,26 +22,26 @@
 struct alignas(16) renderengine_cam {
 	int magic_number = 999; // ack
 
-	float transform_inverse_view_matrix[12];
+	float transform_inverse_view_matrix[12] = {};
 
-	float lens;
-	float clip_start;
-	float clip_end;
+	float lens = 0;
+	float clip_start = 0;
+	float clip_end = 0;
 
-	float sensor_width;
-	float sensor_height;
-	int sensor_fit;
+	float sensor_width = 0;
+	float sensor_height = 0;
+	int sensor_fit = 0;
 
-	float shift_x;
-	float shift_y;
+	float shift_x = 0;
+	float shift_y = 0;
 
-	float interocular_distance;
-	float convergence_distance;
+	float interocular_distance = 0;
+	float convergence_distance = 0;
 
-	float view_camera_zoom;
-	float view_camera_offset[2];
-	int use_view_camera;
-	int view_perspective;
+	float view_camera_zoom = 0;
+	float view_camera_offset[2] = {};
+	int use_view_camera = 0;
+	int view_perspective = 0;
 
 	// Explicit padding to preserve 16-byte alignment
 	int _pad[2];
@@ -51,12 +51,12 @@ struct alignas(16) renderengine_data {
 	int magic_number = 999; // ack
 
 	//char filename[1024];
-	int width, height;
+	int width = 0, height = 0;
 	//int step_samples;
-	int reset;
-	int frame;
+	int reset = 0;
+	int frame = 0;
 
-	renderengine_cam cam;
+	renderengine_cam cam = {};
 };
 
 //typedef struct BRaaSHPCDataRender {
@@ -66,11 +66,11 @@ struct alignas(16) renderengine_data {
 //}BRaaSHPCDataRender;
 
 struct alignas(16) BRaaSHPCDataState {
-	float world_bounds_spatial_lower[3];
-	float world_bounds_spatial_upper[3];
-	float scalars_range[2];
-	int samples;
-	float fps;
+	float world_bounds_spatial_lower[3] = {};
+	float world_bounds_spatial_upper[3] = {};
+	float scalars_range[2] = {};
+	int samples = 0;
+	float fps = 0;
 };
 
 #endif

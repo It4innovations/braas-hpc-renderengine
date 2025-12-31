@@ -920,8 +920,8 @@ void client_init(const char* server,
 	tcpConnection.init_sockets_data(server, port, false);
 	//gladLoadGL();
 	
-	memset(&g_renderengine_data, 0, sizeof(renderengine_data));
-	memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
+	//memset(&g_renderengine_data, 0, sizeof(renderengine_data));
+	//memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
 
 	resize_internal(w, h, true);
 }
@@ -933,8 +933,8 @@ void server_init(const char* server,
 {
 	tcpConnection.init_sockets_data(server, port, true);
 
-	memset(&g_renderengine_data, 0, sizeof(renderengine_data));
-	memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
+	//memset(&g_renderengine_data, 0, sizeof(renderengine_data));
+	//memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
 
 	resize_internal(w, h, false);
 }
