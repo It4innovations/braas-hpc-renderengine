@@ -917,11 +917,19 @@ void client_init(const char* server,
 	//g_renderengine_data.step_samples = step_samples;
 	//strcpy(g_renderengine_data.filename, filename);
 
-	tcpConnection.init_sockets_data(server, port, false);
+	for (int i = 0; i < 3; i++)
+	{
+		tcpConnection.init_sockets_data(server, port, false);
 
-	//ping server
-	char ping = 9;
-	tcpConnection.send_data_data((char*)&ping, sizeof(ping), ping);
+		//ping server
+		char ping = 9;
+		tcpConnection.recv_data_data((char*)&ping, sizeof(ping), ping);
+		if(ping == 9 && !tcpConnection.is_error())
+			break;
+
+		client_close_connection();
+	}
+
 	//gladLoadGL();
 	
 	//memset(&g_renderengine_data, 0, sizeof(renderengine_data));
@@ -935,11 +943,18 @@ void server_init(const char* server,
 	int w,
 	int h)
 {
-	tcpConnection.init_sockets_data(server, port, true);
+	for (int i = 0; i < 3; i++)
+	{
+		tcpConnection.init_sockets_data(server, port, true);
 
-	//ping server
-	char ping = 9;
-	tcpConnection.recv_data_data((char*)&ping, sizeof(ping), ping);
+		//ping server
+		char ping = 9;
+		tcpConnection.send_data_data((char*)&ping, sizeof(ping), ping);
+		if (ping == 9 && !tcpConnection.is_error())
+			break;
+
+		server_close_connection();
+	}
 
 	//memset(&g_renderengine_data, 0, sizeof(renderengine_data));
 	//memset(&g_hs_data_state, 0, sizeof(BRaaSHPCDataState));
