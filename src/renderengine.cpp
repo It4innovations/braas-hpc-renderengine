@@ -62,6 +62,9 @@
 #include <time.h>
 #endif
 
+#include <chrono>
+#include <thread>
+
 #include <cstdint>
 #include <type_traits>
 
@@ -917,17 +920,19 @@ void client_init(const char* server,
 	//g_renderengine_data.step_samples = step_samples;
 	//strcpy(g_renderengine_data.filename, filename);
 
-	for (int i = 0; i < 3; i++)
+	//for (int i = 0; i < 3; i++)
 	{
 		tcpConnection.init_sockets_data(server, port, false);
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 
 		//ping server
 		char ping = 9;
 		tcpConnection.recv_data_data((char*)&ping, sizeof(ping), ping);
-		if(ping == 9 && !tcpConnection.is_error())
-			break;
+		//if(ping == 9 && !tcpConnection.is_error())
+		//	break;
 
-		client_close_connection();
+		//client_close_connection();
 	}
 
 	//gladLoadGL();
@@ -943,17 +948,19 @@ void server_init(const char* server,
 	int w,
 	int h)
 {
-	for (int i = 0; i < 3; i++)
+	//for (int i = 0; i < 3; i++)
 	{
 		tcpConnection.init_sockets_data(server, port, true);
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 
 		//ping server
 		char ping = 9;
 		tcpConnection.send_data_data((char*)&ping, sizeof(ping), ping);
-		if (ping == 9 && !tcpConnection.is_error())
-			break;
+		//if (ping == 9 && !tcpConnection.is_error())
+		//	break;
 
-		server_close_connection();
+		//server_close_connection();
 	}
 
 	//memset(&g_renderengine_data, 0, sizeof(renderengine_data));
