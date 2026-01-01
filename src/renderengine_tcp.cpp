@@ -220,10 +220,13 @@ bool TcpConnection::server_create(int port,
 			return false;
 		}
 
-#  if !defined(__MIC__) && !defined(WIN32)
+#if defined(WIN32)
+		int reuse = 1;
+		setsockopt(server_id, SOL_SOCKET, SO_REUSEADDR,reinterpret_cast<const char*>(&reuse),sizeof(reuse));
+#else
 		int enable = 1;
 		setsockopt(server_id, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int));
-#  endif
+#endif
 
 		// timeval tv;
 		// tv.tv_sec = g_timeval_sec;
@@ -350,9 +353,9 @@ bool TcpConnection::client_create(const char* server_name, int port, int& client
 
 //#ifdef _WIN32
 	// Enable TCP keep-alive
-	// bool bOptVal = true;
-	// int bOptLen = sizeof(bool);
-	// setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, (char*)&bOptVal, bOptLen);
+	 int bOptVal = 1;
+	 int bOptLen = sizeof(bOptVal);
+	 setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, (char*)&bOptVal, bOptLen);
 
 	// Configure keep-alive parameters (optional but recommended)
 //	tcp_keepalive keepalive_vals;
