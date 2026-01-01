@@ -27,6 +27,13 @@
 
 // #include <omp.h>
 #define DEBUG_PRINT(size) printf("%s: %lld\n", __FUNCTION__, size);
+#define CHECK_CONN_ERROR { \
+	if(g_connection_error != 0) \
+		printf("ConnError(%s): %s:%d %d\n", __FUNCTION__, __FILE__, __LINE__, g_connection_error); \
+		int wsaError = WSAGetLastError(); \
+		printf("send() failed with error: %d (WSAECONNRESET=%d, WSAENOTCONN=%d, WSAECONNABORTED=%d)\n", \
+			wsaError, WSAECONNRESET, WSAENOTCONN, WSAECONNABORTED); \
+	}
 
 // RGB
 #  define TCP_WIN_SIZE_SEND (32L * 1024L * 1024L)
@@ -332,6 +339,24 @@ bool TcpConnection::client_create(const char* server_name, int port, int& client
 	setsock_tcp_windowsize(client_id, TCP_WIN_SIZE_SEND, 1);
 	setsock_tcp_windowsize(client_id, TCP_WIN_SIZE_RECV, 0);
 #    endif
+
+//#ifdef _WIN32
+	// Enable TCP keep-alive
+	BOOL bOptVal = TRUE;
+	int bOptLen = sizeof(BOOL);
+	setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, (char*)&bOptVal, bOptLen);
+
+	// Configure keep-alive parameters (optional but recommended)
+//	tcp_keepalive keepalive_vals;
+//	keepalive_vals.onoff = 1;
+//	keepalive_vals.keepalivetime = 10000;  // 10 seconds
+//	keepalive_vals.keepaliveinterval = 1000;  // 1 second
+//	DWORD dwBytesRet;
+//	WSAIoctl(client_id, SIO_KEEPALIVE_VALS, &keepalive_vals, sizeof(keepalive_vals),
+//		NULL, 0, &dwBytesRet, NULL, NULL);
+//#endif
+
+
 #  endif
 
 	// sockaddr_in client_sock;
@@ -371,6 +396,7 @@ bool TcpConnection::client_create(const char* server_name, int port, int& client
 			continue;
 		}
 		g_connection_error = err_connect;
+		CHECK_CONN_ERROR;
 		break;
 	}
 	//#  endif
@@ -667,6 +693,7 @@ void TcpConnection::send_data_cam(char* data, size_t size, char ack_enabled)
 
 		if (temp < 1) {
 			g_connection_error = 1;
+			CHECK_CONN_ERROR;
 			break;
 		}
 
@@ -679,6 +706,7 @@ void TcpConnection::send_data_cam(char* data, size_t size, char ack_enabled)
 		if (ack != ack_enabled) {
 			printf("error in send_data_cam (ack != ack_enabled): %d != %d\n", (int)ack, (int)ack_enabled);
 			g_connection_error = 1;
+			CHECK_CONN_ERROR;
 		}
 	}
 }
@@ -704,6 +732,7 @@ void TcpConnection::send_data_data(char* data, size_t size, char ack_enabled)
 
 		if (temp < 1) {
 			g_connection_error = 1;
+			CHECK_CONN_ERROR;
 			break;
 		}
 
@@ -716,6 +745,7 @@ void TcpConnection::send_data_data(char* data, size_t size, char ack_enabled)
 		if (ack != ack_enabled) {
 			printf("error in send_data_data (ack != ack_enabled): %d != %d\n", (int)ack, (int)ack_enabled);
 			g_connection_error = 1;
+			CHECK_CONN_ERROR;
 		}
 	}
 }
@@ -741,6 +771,7 @@ void TcpConnection::recv_data_cam(char* data, size_t size, char ack_enabled)
 
 		if (temp < 1) {
 			g_connection_error = 1;
+			CHECK_CONN_ERROR;
 			break;
 		}
 
@@ -773,6 +804,7 @@ void TcpConnection::recv_data_data(char* data, size_t size, char ack_enabled)
 
 		if (temp < 1) {
 			g_connection_error = 1;
+			CHECK_CONN_ERROR;
 			break;
 		}
 
