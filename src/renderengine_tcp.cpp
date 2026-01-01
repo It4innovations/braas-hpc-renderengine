@@ -63,6 +63,17 @@
 #  define KERNEL_SOCKET_RECV_IGNORE_RC(s, buf, len) { auto rc = read(s, buf, len); assert(rc == len); }
 #endif
 
+#ifdef _WIN32
+#define SHUT_RD_WR SD_BOTH
+#define SHUT_WR_ONLY SD_SEND
+#define SHUT_RD_ONLY SD_RECEIVE
+#else
+#define SHUT_RD_WR SHUT_RDWR
+#define SHUT_WR_ONLY SHUT_WR
+#define SHUT_RD_ONLY SHUT_RD
+#endif
+
+
 TcpConnection::TcpConnection()
 {
 	init_port();
@@ -421,6 +432,8 @@ bool TcpConnection::client_create(const char* server_name, int port, int& client
 
 void TcpConnection::close_tcp(int id)
 {
+	shutdown(id, SHUT_RD_WR);
+
 #  ifdef WIN32
 	closesocket(id);
 #  else
