@@ -27,13 +27,21 @@
 
 // #include <omp.h>
 #define DEBUG_PRINT(size) printf("%s: %lld\n", __FUNCTION__, size);
-#define CHECK_CONN_ERROR { \
+
+#ifdef _WIN32
+#	define CHECK_CONN_ERROR { \
 	if(g_connection_error != 0) \
 		printf("ConnError(%s): %s:%d %d\n", __FUNCTION__, __FILE__, __LINE__, g_connection_error); \
 		int wsaError = WSAGetLastError(); \
 		printf("send() failed with error: %d (WSAECONNRESET=%d, WSAENOTCONN=%d, WSAECONNABORTED=%d)\n", \
 			wsaError, WSAECONNRESET, WSAENOTCONN, WSAECONNABORTED); \
 	}
+#else
+#	define CHECK_CONN_ERROR { \
+	if(g_connection_error != 0) \
+		printf("ConnError(%s): %s:%d %d\n", __FUNCTION__, __FILE__, __LINE__, g_connection_error); \
+	}
+#endif
 
 // RGB
 #  define TCP_WIN_SIZE_SEND (32L * 1024L * 1024L)
@@ -342,9 +350,9 @@ bool TcpConnection::client_create(const char* server_name, int port, int& client
 
 //#ifdef _WIN32
 	// Enable TCP keep-alive
-	BOOL bOptVal = TRUE;
-	int bOptLen = sizeof(BOOL);
-	setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, (char*)&bOptVal, bOptLen);
+	// bool bOptVal = true;
+	// int bOptLen = sizeof(bool);
+	// setsockopt(client_id, SOL_SOCKET, SO_KEEPALIVE, (char*)&bOptVal, bOptLen);
 
 	// Configure keep-alive parameters (optional but recommended)
 //	tcp_keepalive keepalive_vals;
