@@ -26,7 +26,7 @@
 
 
 // #include <omp.h>
-#define DEBUG_PRINT(size) printf("%s: %lld\n", __FUNCTION__, size);
+#define DEBUG_PRINT(size) //printf("%s: %lld\n", __FUNCTION__, size);
 
 #ifdef _WIN32
 #	define CHECK_CONN_ERROR { \
