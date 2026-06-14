@@ -1,5 +1,5 @@
 // #####################################################################################################################
-// # Copyright(C) 2011-2025 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+// # Copyright(C) 2011-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 // #
 // # This program is free software : you can redistribute it and/or modify
 // # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 //#endif
 #ifdef WITH_CLIENT_EPOXY
 #	include <epoxy/gl.h>
-#	if defined(WITH_CLIENT_GPUJPEG)
+#	if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 #		if defined(__HIP_PLATFORM_AMD__)
 #			include <hip/hip_runtime.h>
 #			include <hip/hip_gl_interop.h>
@@ -34,7 +34,7 @@
 #		endif
 #	endif
 #else
-#	if defined(WITH_CLIENT_GPUJPEG)
+#	if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 #		if defined(__HIP_PLATFORM_AMD__)
 #			include <hip/hip_runtime.h>
 #		elif defined(GPUJPEG_USE_SYCL)
@@ -115,9 +115,13 @@ static_assert(alignof(BRaaSHPCDataState) == 16,
 #define TCP_PIX_SIZE_U16 sizeof(unsigned short)
 #define TCP_PIX_SIZE_U8 sizeof(unsigned char)
 
+#ifdef WITH_CLIENT_HDR_BLOCK_CODEC
+size_t PIX_SIZE = TCP_PIX_SIZE_U16;
+#else
 size_t PIX_SIZE = TCP_PIX_SIZE_U8;
+#endif
 
-#ifdef WITH_CLIENT_GPUJPEG
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 bool USE_GPUJPEG = true;
 #else
 bool USE_GPUJPEG = false;
@@ -242,7 +246,7 @@ void check_exit()
 {
 }
 
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 
 // GPU abstraction macros
 #if defined(__HIP_PLATFORM_AMD__)
@@ -347,7 +351,7 @@ void gpu_error_message(const std::string& message)
 
 void cuda_set_device()
 {
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 	cuda_assert(gpuSetDevice(0));
 #endif
 }
@@ -456,14 +460,14 @@ void setup_texture(bool use_gl)
 
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 		cuda_assert(gpuGLRegisterBufferObject(g_bufferId));
 #endif
 		//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 	}
 #endif
 
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 	cuda_assert(gpuMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
 	printf("Setup texture %d x %d, Pointer: %zu (Size: %zu)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 #endif
@@ -477,13 +481,13 @@ void free_texture(bool use_gl)
 	//cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
 
 	if (use_gl) {
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 		cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
 #endif
 	}
 #endif
 
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 	printf("Free texture Pointer: %zu\n", (size_t)g_pixels_buf_recv_d);
 	cuda_assert(gpuFree(g_pixels_buf_recv_d));
 #endif	
@@ -524,7 +528,7 @@ void draw_texture_internal(bool use_gl)
 	cuda_set_device();
 #ifdef WITH_CLIENT_EPOXY
 	if (use_gl) {
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 		cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 		cuda_assert(cudaMemcpy(g_pixels_buf_d, g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
 			cudaMemcpyDeviceToDevice));
@@ -647,7 +651,7 @@ void resize_internal(int width, int height, bool use_gl)
 	if (g_pixels_buf)
 	{		
 		free_texture(use_gl);
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 		cuda_assert(gpuFreeHost(g_pixels_buf));
 #else
 		free(g_pixels_buf);
@@ -657,7 +661,7 @@ void resize_internal(int width, int height, bool use_gl)
 	g_renderengine_data.width = width;
 	g_renderengine_data.height = height;
 
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 	cuda_assert(gpuHostAlloc((void**)&g_pixels_buf, (size_t)width * height * PIX_SIZE * 4, gpuHostAllocMapped));
 #else
 	g_pixels_buf = (unsigned char*)malloc((size_t)width * height * PIX_SIZE * 4);
@@ -686,6 +690,7 @@ int recv_pixels_data()
 		//#else //TCP_PIX_SIZE_U8
 		int format = 8;
 		//#endif
+#ifndef WITH_CLIENT_HDR_BLOCK_CODEC
 		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
 			format = 32;
 		}
@@ -695,7 +700,7 @@ int recv_pixels_data()
 		else { //TCP_PIX_SIZE_U8
 			format = 8;
 		}
-
+#endif
 		tcpConnection.recv_gpujpeg(
 			(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
 	}
@@ -703,7 +708,7 @@ int recv_pixels_data()
 		tcpConnection.recv_data_data((char*)g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
 
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 		cuda_assert(gpuMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
 			g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
@@ -735,6 +740,7 @@ int send_pixels_data()
 		//#else //TCP_PIX_SIZE_U8
 		int format = 8;
 		//#endif
+#ifndef WITH_CLIENT_HDR_BLOCK_CODEC
 		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
 			int format = 32;
 		}
@@ -744,7 +750,7 @@ int send_pixels_data()
 		else { //TCP_PIX_SIZE_U8
 			int format = 8;
 		}
-
+#endif
 		tcpConnection.send_gpujpeg(
 			(char*)g_pixels_buf_recv_d, (char*)g_pixels_buf, g_renderengine_data.width, g_renderengine_data.height, format);
 	}
@@ -871,6 +877,7 @@ int get_pixsize()
 
 void set_pixsize(int ps)
 {
+#ifndef WITH_CLIENT_HDR_BLOCK_CODEC
 	if (ps == 8) {
 		PIX_SIZE = TCP_PIX_SIZE_U8;
 	}
@@ -884,6 +891,7 @@ void set_pixsize(int ps)
 		printf("set_pixsize: Unsupported pixel size %d, using 8 bits\n", ps);
 		PIX_SIZE = TCP_PIX_SIZE_U8;
 	}
+#endif
 }
 
 int is_gpujpeg() {
@@ -892,7 +900,7 @@ int is_gpujpeg() {
 
 int enable_gpujpeg(int enabled)
 {
-#ifdef WITH_CLIENT_GPUJPEG
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 	USE_GPUJPEG = (enabled != 0);
 	return 0;
 #else
@@ -1085,7 +1093,7 @@ void set_pixels(void* pixels, bool device)
 
 	if (device) {
 		//printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 		cuda_assert(gpuMemcpy(
 			g_pixels_buf_recv_d,
 			pixels,
@@ -1095,7 +1103,7 @@ void set_pixels(void* pixels, bool device)
 	}
 	else {
 		if (USE_GPUJPEG) {
-#if defined(WITH_CLIENT_GPUJPEG)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 			cuda_assert(gpuMemcpy(
 				g_pixels_buf_recv_d,
 				pixels,

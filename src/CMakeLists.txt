@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2025 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2011-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,6 +40,12 @@ if(WITH_CLIENT_GPUJPEG)
 	endif()
 endif()
 
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+	add_definitions(-DWITH_CLIENT_HDR_BLOCK_CODEC)
+	# HDR codec requires CUDA Toolkit
+	find_package(CUDAToolkit REQUIRED)
+endif()
+
 if(WITH_CLIENT_EPOXY)
     add_definitions(-DWITH_CLIENT_EPOXY)
 endif()
@@ -58,14 +64,23 @@ if(WITH_CLIENT_GPUJPEG)
 	if(GPUJPEG_USE_HIP)
 		list(APPEND INC ${ROCM_PATH}/include)
 	else()
-		list(APPEND INC ${CUDA_INCLUDE_DIRS})
+		find_package(CUDAToolkit REQUIRED)
+		list(APPEND INC ${CUDAToolkit_INCLUDE_DIRS})
 	endif()
+endif()
+
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+	list(APPEND INC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 set(SRC
 	renderengine.cpp
     renderengine_tcp.cpp
 )
+
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+	list(APPEND SRC hdr_block_codec.cu)
+endif()
 
 set(SRC_HEADERS
     renderengine_api.h
@@ -74,8 +89,21 @@ set(SRC_HEADERS
     renderengine_tcp.h
 )
 
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+	list(APPEND SRC_HEADERS hdr_block_codec.h)
+endif()
+
 include_directories(${INC})
 add_library(braas_hpc_renderengine SHARED ${SRC} ${SRC_HEADERS})
+
+# Enable CUDA for HDR codec if needed
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+	set_source_files_properties(hdr_block_codec.cu PROPERTIES LANGUAGE CUDA)
+	set_target_properties(braas_hpc_renderengine PROPERTIES 
+		CUDA_SEPARABLE_COMPILATION ON
+		CUDA_RESOLVE_DEVICE_SYMBOLS ON
+	)
+endif()
 
 # Enable symbol export on Windows
 if(WIN32)
@@ -101,17 +129,45 @@ if(WITH_CLIENT_GPUJPEG)
 			message(WARNING "HIP library not found in ${ROCM_PATH}/lib")
 		endif()
 	else()
+		# Use static CUDA runtime to avoid runtime DLL dependencies
 		target_link_libraries(braas_hpc_renderengine 
-			${CUDA_LIBRARIES}
-			${CUDA_CUDA_LIBRARY}
+			CUDA::cudart_static
 		)
 	endif()
+endif()
+
+# Add CUDA libraries for HDR codec
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+	# Use static CUDA runtime to avoid runtime DLL dependencies
+	target_link_libraries(braas_hpc_renderengine 
+		CUDA::cudart_static
+		${CUDA_CUDA_LIBRARY}
+	)
 endif()
 
 target_include_directories(braas_hpc_renderengine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+
+# Export compile definitions to consuming projects
+if(WITH_CLIENT_GPUJPEG)
+    target_compile_definitions(braas_hpc_renderengine PUBLIC WITH_CLIENT_GPUJPEG)
+    if(GPUJPEG_USE_HIP)
+        target_compile_definitions(braas_hpc_renderengine PUBLIC GPUJPEG_USE_HIP __HIP_PLATFORM_AMD__)
+    endif()
+    if(GPUJPEG_USE_SYCL)
+        target_compile_definitions(braas_hpc_renderengine PUBLIC GPUJPEG_USE_SYCL)
+    endif()
+endif()
+
+if(WITH_CLIENT_HDR_BLOCK_CODEC)
+    target_compile_definitions(braas_hpc_renderengine PUBLIC WITH_CLIENT_HDR_BLOCK_CODEC)
+endif()
+
+if(WITH_CLIENT_EPOXY)
+    target_compile_definitions(braas_hpc_renderengine PUBLIC WITH_CLIENT_EPOXY)
+endif()
 
 install(TARGETS braas_hpc_renderengine
     EXPORT braas_hpc_renderengine_targets

@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2025 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2011-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,23 +16,33 @@
 #
 #####################################################################################################################
 cmake_minimum_required(VERSION 3.20)
-project (braas_hpc_renderengine)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+# Options need to be defined before project() to use them in language selection
 option(WITH_CLIENT_GPUJPEG "Enable GPUJPEG" OFF)
+option(WITH_CLIENT_HDR_BLOCK_CODEC "Enable hdr block codec" OFF)
 option(WITH_CLIENT_EPOXY "Enable EPOXY" OFF)
 
 # GPU backend options for GPUJPEG
 option(GPUJPEG_USE_HIP "Build GPUJPEG with HIP backend for AMD GPUs" OFF)
 option(GPUJPEG_USE_SYCL "Build GPUJPEG with SYCL backend for Intel/other GPUs" OFF)
 
+# Enable CUDA language if needed
+if(WITH_CLIENT_HDR_BLOCK_CODEC OR (WITH_CLIENT_GPUJPEG AND NOT GPUJPEG_USE_HIP AND NOT GPUJPEG_USE_SYCL))
+    project(braas_hpc_renderengine LANGUAGES CXX CUDA)
+else()
+    project(braas_hpc_renderengine LANGUAGES CXX)
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# GPU backend options for GPUJPEG
+option(GPUJPEG_USE_HIP "Build GPUJPEG with HIP backend for AMD GPUs" OFF)
+option(GPUJPEG_USE_SYCL "Build GPUJPEG with SYCL backend for Intel/other GPUs" OFF)
+
 if(WITH_CLIENT_GPUJPEG)
-    # Only require CUDA if not using HIP or SYCL
-    if(NOT GPUJPEG_USE_HIP AND NOT GPUJPEG_USE_SYCL)
-        find_package(CUDA REQUIRED)
-    endif()
+    # GPUJPEG with HIP or SYCL backend doesn't need CUDA
+    # CUDA language already enabled at project level if needed
     
     #set(GPUJPEG_INCLUDE_DIR "" CACHE PATH "")
     #set(GPUJPEG_LIBRARIES "" CACHE FILEPATH "")

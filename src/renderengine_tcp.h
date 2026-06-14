@@ -1,5 +1,5 @@
 // #####################################################################################################################
-// # Copyright(C) 2011-2025 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+// # Copyright(C) 2011-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 // #
 // # This program is free software : you can redistribute it and/or modify
 // # it under the terms of the GNU General Public License as published by
@@ -42,12 +42,6 @@
 #      include <unistd.h>
 #    endif
 
-#ifdef WITH_CLIENT_GPUJPEG
-#  include <libgpujpeg/gpujpeg_common.h>
-#  include <libgpujpeg/gpujpeg_decoder.h>
-#  include <libgpujpeg/gpujpeg_encoder.h>
-#endif
-
 #define TCP_OPTIMIZATION
 #define MAX_CONNECTIONS 100
 
@@ -80,13 +74,20 @@ protected:
 	int frame = 0;
 
 #ifdef WITH_CLIENT_GPUJPEG
-	gpujpeg_encoder* g_encoder = NULL;
+	void* g_encoder = NULL;
 	uint8_t* g_image_compressed;
 
 	int g_compressed_quality = -1; //0-100
 
-	gpujpeg_decoder* g_decoder = NULL;
+	void* g_decoder = NULL;
 #endif
+
+#ifdef WITH_CLIENT_HDR_BLOCK_CODEC
+	void* g_hdr_compressed_buffer = NULL;
+	size_t g_hdr_compressed_buffer_size = 0;
+	int g_hdr_codec_profile = 8; // Default to 8 bpp
+#endif
+
 public:
 	TcpConnection();
 	virtual void write_data_kernelglobal(void* data, size_t size);
@@ -169,6 +170,21 @@ protected:
 		uint8_t* input_image,
 		uint8_t* image_compressed,
 		size_t image_compressed_size);
+#endif
+
+#ifdef WITH_CLIENT_HDR_BLOCK_CODEC
+	int hdr_codec_encode(int width,
+		int height,
+		int format,
+		uint8_t* input_image,
+		size_t& image_compressed_size);
+
+	int hdr_codec_decode(int width,
+		int height,
+		int format,
+		uint8_t* output_image,
+		uint8_t* compressed_data,
+		size_t compressed_size);
 #endif
 };
 

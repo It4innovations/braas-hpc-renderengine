@@ -3,8 +3,10 @@
 include(CMakeFindDependencyMacro)
 
 # Find required dependencies
-#find_dependency(CUDA)
-#find_dependency(OpenMP)
+# CUDA is required if HDR block codec or GPUJPEG (non-HIP/SYCL) is enabled
+if(@WITH_CLIENT_HDR_BLOCK_CODEC@ OR (@WITH_CLIENT_GPUJPEG@ AND NOT @GPUJPEG_USE_HIP@ AND NOT @GPUJPEG_USE_SYCL@))
+    find_dependency(CUDAToolkit REQUIRED)
+endif()
 
 # Include the targets file
 include("${CMAKE_CURRENT_LIST_DIR}/braas_hpc_renderengineTargets.cmake")

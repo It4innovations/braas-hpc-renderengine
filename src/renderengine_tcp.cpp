@@ -1,5 +1,5 @@
 // #####################################################################################################################
-// # Copyright(C) 2011-2025 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+// # Copyright(C) 2011-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 // #
 // # This program is free software : you can redistribute it and/or modify
 // # it under the terms of the GNU General Public License as published by
@@ -24,6 +24,17 @@
 #include <string.h>
 #include <sys/types.h>
 
+#ifdef WITH_CLIENT_HDR_BLOCK_CODEC
+#include <cuda_runtime.h>
+#include <cuda_fp16.h>
+#include "hdr_block_codec.h"
+#endif
+
+#ifdef WITH_CLIENT_GPUJPEG
+#  include <libgpujpeg/gpujpeg_common.h>
+#  include <libgpujpeg/gpujpeg_decoder.h>
+#  include <libgpujpeg/gpujpeg_encoder.h>
+#endif
 
 // #include <omp.h>
 #define DEBUG_PRINT(size) //printf("%s: %lld\n", __FUNCTION__, size);
@@ -1225,7 +1236,7 @@ int TcpConnection::gpujpeg_encode(int width,
 	}
 
 	// compress the image
-	if (gpujpeg_encoder_encode(g_encoder,
+	if (gpujpeg_encoder_encode((gpujpeg_encoder*)g_encoder,
 		&param,
 		&param_image,
 		&encoder_input,
@@ -1253,13 +1264,13 @@ int TcpConnection::gpujpeg_decode(int width,
 
 	//gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_444_U8_P012Z);
 	if (format == 8) { //U8 - RGB
-		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U8_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
+		gpujpeg_decoder_set_output_format((gpujpeg_decoder *)g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U8_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
 	else if (format == 16) { //U16 - RGB
-		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U16_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
+		gpujpeg_decoder_set_output_format((gpujpeg_decoder *)g_decoder, GPUJPEG_RGB, GPUJPEG_4444_U16_P0123); //GPUJPEG_444_U8_P012A //GPUJPEG_444_U8_P012Z
 	}
 	else if (format == 32) { //FLOAT - RGB
-		gpujpeg_decoder_set_output_format(g_decoder, GPUJPEG_RGB, GPUJPEG_4444_F32_P0123); //GPUJPEG_444_U8_P012Z
+		gpujpeg_decoder_set_output_format((gpujpeg_decoder *)g_decoder, GPUJPEG_RGB, GPUJPEG_4444_F32_P0123); //GPUJPEG_444_U8_P012Z
 	}
 	else {
 		printf("gpujpeg_decode: unsupported format [8,16,32] %d\n", format);
@@ -1293,13 +1304,140 @@ int TcpConnection::gpujpeg_decode(int width,
 	uint8_t* image_decompressed = NULL;
 	int image_decompressed_size = 0;
 	if (gpujpeg_decoder_decode(
-		g_decoder, image_compressed, image_compressed_size, &decoder_output) != 0) {
+		(gpujpeg_decoder*)g_decoder, image_compressed, image_compressed_size, &decoder_output) != 0) {
 		return 1;
 	}
 
 	return 0;
 }
 #endif
+
+#ifdef WITH_CLIENT_HDR_BLOCK_CODEC
+int TcpConnection::hdr_codec_encode(int width,
+	int height,
+	int format,
+	uint8_t* input_image,
+	size_t& image_compressed_size)
+{
+	// Map format parameter to HDR codec profile:
+	// format == 4  -> 4 bpp (preview quality)
+	// format == 8  -> 8 bpp (standard quality)
+	// format == 16 -> 16 bpp (high quality)
+	HDRCodecProfile profile;
+	
+	if (format == 4) {
+		profile = HDRCodecProfile::HDR_4BPP_PREVIEW;
+	}
+	else if (format == 8) {
+		profile = HDRCodecProfile::HDR_8BPP_ENDPOINTS;
+	}
+	else if (format == 16) {
+		profile = HDRCodecProfile::HDR_16BPP_QUALITY;
+	}
+	else {
+		printf("hdr_codec_encode: unsupported format [4,8,16] %d\n", format);
+		return 1;
+	}
+	
+	// Calculate required buffer size
+	image_compressed_size = compressed_size_bytes(width, height, profile);
+	
+	// Allocate compressed buffer if needed
+	if (g_hdr_compressed_buffer == NULL || g_hdr_compressed_buffer_size < image_compressed_size) {
+		if (g_hdr_compressed_buffer != NULL) {
+			cudaFree(g_hdr_compressed_buffer);
+		}
+		cudaError_t err = cudaMalloc(&g_hdr_compressed_buffer, image_compressed_size);
+		if (err != cudaSuccess) {
+			printf("hdr_codec_encode: cudaMalloc failed: %s\n", cudaGetErrorString(err));
+			return 1;
+		}
+		g_hdr_compressed_buffer_size = image_compressed_size;
+	}
+	
+	// Compress the frame
+	compress_frame_cuda(
+		reinterpret_cast<const Half4*>(input_image),
+		g_hdr_compressed_buffer,
+		width,
+		height,
+		profile
+	);
+	
+	// Check for CUDA errors
+	cudaError_t err = cudaGetLastError();
+	if (err != cudaSuccess) {
+		printf("hdr_codec_encode: compress_frame_cuda failed: %s\n", cudaGetErrorString(err));
+		return 1;
+	}
+	
+	return 0;
+}
+
+int TcpConnection::hdr_codec_decode(int width,
+	int height,
+	int format,
+	uint8_t* d_output_image,
+	uint8_t* compressed_data,
+	size_t compressed_size)
+{
+	// Map format parameter to HDR codec profile
+	HDRCodecProfile profile;
+	
+	if (format == 4) {
+		profile = HDRCodecProfile::HDR_4BPP_PREVIEW;
+	}
+	else if (format == 8) {
+		profile = HDRCodecProfile::HDR_8BPP_ENDPOINTS;
+	}
+	else if (format == 16) {
+		profile = HDRCodecProfile::HDR_16BPP_QUALITY;
+	}
+	else {
+		printf("hdr_codec_decode: unsupported format [4,8,16] %d\n", format);
+		return 1;
+	}
+
+	// Allocate compressed buffer if needed
+	if (g_hdr_compressed_buffer == NULL || g_hdr_compressed_buffer_size < compressed_size) {
+		if (g_hdr_compressed_buffer != NULL) {
+			cudaFree(g_hdr_compressed_buffer);
+		}
+		cudaError_t err = cudaMalloc(&g_hdr_compressed_buffer, compressed_size);
+		if (err != cudaSuccess) {
+			printf("hdr_codec_decode: cudaMalloc failed: %s\n", cudaGetErrorString(err));
+			return 1;
+		}
+		g_hdr_compressed_buffer_size = compressed_size;
+	}
+
+	// Copy compressed data from host to device
+	cudaError_t err = cudaMemcpy(g_hdr_compressed_buffer, compressed_data, compressed_size, cudaMemcpyHostToDevice);
+	if (err != cudaSuccess) {
+		printf("recv_gpujpeg: cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+		return 1;
+	}
+	
+	// Decompress the frame
+	decompress_frame_cuda(
+		g_hdr_compressed_buffer,
+		reinterpret_cast<Half4*>(d_output_image),
+		width,
+		height,
+		profile
+	);
+	
+	// Check for CUDA errors
+	err = cudaGetLastError();
+	if (err != cudaSuccess) {
+		printf("hdr_codec_decode: decompress_frame_cuda failed: %s\n", cudaGetErrorString(err));
+		return 1;
+	}
+	
+	return 0;
+}
+#endif
+
 void TcpConnection::send_gpujpeg(char* dmem, char* pixels, int width, int height, int format)
 {
 #ifdef WITH_CLIENT_GPUJPEG
@@ -1311,6 +1449,31 @@ void TcpConnection::send_gpujpeg(char* dmem, char* pixels, int width, int height
 	send_data_data((char*)g_image_compressed, frame_size);
 	// double t2 = omp_get_wtime();
 	//printf("send_gpujpeg: %f, %f, fps: %f, %f\n", t1 - t0, t2 - t1, 1.0/(t1 - t0), 1.0/(t2 - t1));
+#elif defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+	// HDR block codec path
+	size_t frame_size = 0;
+	hdr_codec_encode(width, height, format, (uint8_t*)dmem, frame_size);
+	
+	// Allocate host buffer for compressed data transfer
+	//void* h_compressed = malloc(frame_size);
+	//if (h_compressed == NULL) {
+	//	printf("send_gpujpeg: malloc failed for %zu bytes\n", frame_size);
+	//	return;
+	//}
+	
+	// Copy compressed data from device to host
+	cudaError_t err = cudaMemcpy(pixels, g_hdr_compressed_buffer, frame_size, cudaMemcpyDeviceToHost);
+	if (err != cudaSuccess) {
+		printf("send_gpujpeg: cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+		//free(h_compressed);
+		return;
+	}
+	
+	// Send compressed data over TCP
+	send_data_data((char*)&frame_size, sizeof(frame_size));
+	send_data_data((char*)pixels, frame_size);
+	
+	//free(h_compressed);
 #endif
 }
 
@@ -1325,6 +1488,36 @@ void TcpConnection::recv_gpujpeg(char* dmem, char* pixels, int width, int height
 	gpujpeg_decode(width, height, format, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
 	//double t2 = omp_get_wtime();
 	// printf("recv_gpujpeg: %f, %f\n", t1 - t0, t2 - t1);
+#elif defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+	// HDR block codec path
+	size_t frame_size = 0;
+	recv_data_data((char*)&frame_size, sizeof(frame_size));
+	
+	// Allocate host buffer for receiving compressed data
+	//void* h_compressed = malloc(frame_size);
+	//if (h_compressed == NULL) {
+	//	printf("recv_gpujpeg: malloc failed for %zu bytes\n", frame_size);
+	//	return;
+	//}
+	
+	// Receive compressed data over TCP
+	recv_data_data((char*)pixels, frame_size);
+	
+	// Allocate device buffer for compressed data if needed
+	//void* d_compressed = NULL;
+	//cudaError_t err = cudaMalloc(&d_compressed, frame_size);
+	//if (err != cudaSuccess) {
+	//	printf("recv_gpujpeg: cudaMalloc failed: %s\n", cudaGetErrorString(err));
+	//	//free(h_compressed);
+	//	return;
+	//}
+	
+	
+	// Decode the compressed data
+	hdr_codec_decode(width, height, format, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
+	
+	//cudaFree(d_compressed);
+	//free(h_compressed);
 #endif
 }
 
@@ -1332,6 +1525,9 @@ void TcpConnection::recv_decode(char* dmem, char* pixels, int width, int height,
 {
 #ifdef WITH_CLIENT_GPUJPEG
 	gpujpeg_decode(width, height, 0, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
+#elif defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+	// HDR codec decode with default format (8 bpp)
+	hdr_codec_decode(width, height, 8, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
 #endif
 }
 
