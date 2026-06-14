@@ -1136,7 +1136,7 @@ void TcpConnection::yuv_i420_to_rgb_half(
 	}
 }
 
-#ifdef WITH_CLIENT_GPUJPEG
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
 
 //#define gpujpeg_decoder_output_set_custom_cuda
 #if defined(__HIP_PLATFORM_AMD__)
@@ -1171,6 +1171,9 @@ bool is_device_ptr(const void* ptr) {
 	return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
 #endif
 }
+#endif
+
+#ifdef WITH_CLIENT_GPUJPEG
 
 int TcpConnection::gpujpeg_encode(int width,
 	int height,
@@ -1358,9 +1361,40 @@ int TcpConnection::hdr_codec_encode(int width,
 		g_hdr_compressed_buffer_size = image_compressed_size;
 	}
 	
+	// Check if input_image is a device pointer
+	uint8_t* d_input_image = input_image;
+	bool need_copy_input = false;
+	
+	if (!is_device_ptr(input_image)) {
+		// Input is on host, need to allocate device buffer and copy
+		size_t image_size = width * height * 8; // sizeof(Half4);
+		
+		if (g_hdr_image_buffer == NULL || g_hdr_image_buffer_size < image_size) {
+			if (g_hdr_image_buffer != NULL) {
+				cudaFree(g_hdr_image_buffer);
+			}
+			cudaError_t err = cudaMalloc(&g_hdr_image_buffer, image_size);
+			if (err != cudaSuccess) {
+				printf("hdr_codec_encode: cudaMalloc for image buffer failed: %s\n", cudaGetErrorString(err));
+				return 1;
+			}
+			g_hdr_image_buffer_size = image_size;
+		}
+		
+		// Copy from host to device
+		cudaError_t err = cudaMemcpy(g_hdr_image_buffer, input_image, image_size, cudaMemcpyHostToDevice);
+		if (err != cudaSuccess) {
+			printf("hdr_codec_encode: cudaMemcpy to device failed: %s\n", cudaGetErrorString(err));
+			return 1;
+		}
+		
+		d_input_image = (uint8_t*)g_hdr_image_buffer;
+		need_copy_input = true;
+	}
+	
 	// Compress the frame
 	compress_frame_cuda(
-		reinterpret_cast<const Half4*>(input_image),
+		reinterpret_cast<const Half4*>(d_input_image),
 		g_hdr_compressed_buffer,
 		width,
 		height,
@@ -1380,7 +1414,7 @@ int TcpConnection::hdr_codec_encode(int width,
 int TcpConnection::hdr_codec_decode(int width,
 	int height,
 	int format,
-	uint8_t* d_output_image,
+	uint8_t* output_image,
 	uint8_t* compressed_data,
 	size_t compressed_size)
 {
@@ -1424,10 +1458,34 @@ int TcpConnection::hdr_codec_decode(int width,
 		return 1;
 	}
 	
+	// Check if output_image is a device pointer
+	uint8_t* d_temp_output = output_image;
+	bool need_copy_output = false;
+	
+	if (!is_device_ptr(output_image)) {
+		// Output is on host, need to allocate device buffer
+		size_t image_size = width * height * 8;// sizeof(Half4);
+		
+		if (g_hdr_image_buffer == NULL || g_hdr_image_buffer_size < image_size) {
+			if (g_hdr_image_buffer != NULL) {
+				cudaFree(g_hdr_image_buffer);
+			}
+			cudaError_t err = cudaMalloc(&g_hdr_image_buffer, image_size);
+			if (err != cudaSuccess) {
+				printf("hdr_codec_decode: cudaMalloc for image buffer failed: %s\n", cudaGetErrorString(err));
+				return 1;
+			}
+			g_hdr_image_buffer_size = image_size;
+		}
+		
+		d_temp_output = (uint8_t*)g_hdr_image_buffer;
+		need_copy_output = true;
+	}
+	
 	// Decompress the frame
 	decompress_frame_cuda(
 		g_hdr_compressed_buffer,
-		reinterpret_cast<Half4*>(d_output_image),
+		reinterpret_cast<Half4*>(d_temp_output),
 		width,
 		height,
 		profile
@@ -1438,6 +1496,16 @@ int TcpConnection::hdr_codec_decode(int width,
 	if (err != cudaSuccess) {
 		printf("hdr_codec_decode: decompress_frame_cuda failed: %s\n", cudaGetErrorString(err));
 		return 1;
+	}
+	
+	// Copy from device to host if needed
+	if (need_copy_output) {
+		size_t image_size = width * height * 8;// sizeof(Half4);
+		err = cudaMemcpy(output_image, g_hdr_image_buffer, image_size, cudaMemcpyDeviceToHost);
+		if (err != cudaSuccess) {
+			printf("hdr_codec_decode: cudaMemcpy to host failed: %s\n", cudaGetErrorString(err));
+			return 1;
+		}
 	}
 	
 	return 0;

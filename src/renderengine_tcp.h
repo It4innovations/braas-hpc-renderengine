@@ -83,6 +83,8 @@ protected:
 #endif
 
 #ifdef WITH_CLIENT_HDR_BLOCK_CODEC
+    void* g_hdr_image_buffer = NULL;
+	size_t g_hdr_image_buffer_size = 0;
 	void* g_hdr_compressed_buffer = NULL;
 	size_t g_hdr_compressed_buffer_size = 0;
 	int g_hdr_codec_profile = 8; // Default to 8 bpp
