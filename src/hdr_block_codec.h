@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstddef>
 
+#define HDR_BLOCK_CODEC_FORMAT 8 //default to 8 bpp
+
 #ifdef __cplusplus
 extern "C" {
 #endif

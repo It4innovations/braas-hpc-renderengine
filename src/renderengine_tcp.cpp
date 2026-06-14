@@ -1319,6 +1319,9 @@ int TcpConnection::hdr_codec_encode(int width,
 	uint8_t* input_image,
 	size_t& image_compressed_size)
 {
+	// TODO
+	format = HDR_BLOCK_CODEC_FORMAT;
+
 	// Map format parameter to HDR codec profile:
 	// format == 4  -> 4 bpp (preview quality)
 	// format == 8  -> 8 bpp (standard quality)
@@ -1381,6 +1384,9 @@ int TcpConnection::hdr_codec_decode(int width,
 	uint8_t* compressed_data,
 	size_t compressed_size)
 {
+	// TODO
+	format = HDR_BLOCK_CODEC_FORMAT;
+
 	// Map format parameter to HDR codec profile
 	HDRCodecProfile profile;
 	
