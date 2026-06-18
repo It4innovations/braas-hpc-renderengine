@@ -704,7 +704,7 @@ void compress_half4_to_hdr16bpp_blocks(
         t = clamp01(t);
 
         uint64_t idx = (uint64_t)(t * 15.0f + 0.5f);
-        idx = min(idx, 15ull);
+        idx = min(idx, (uint64_t)15);
 
         local_bits = idx << (4 * tx);
     }

@@ -745,17 +745,19 @@ int send_pixels_data()
 		//#elif defined(TCP_PIX_SIZE_U16)
 		//	int format = 1;
 		//#else //TCP_PIX_SIZE_U8
+		int format = 8;
+
 #ifdef WITH_CLIENT_HDR_BLOCK_CODEC
-		int format = HDR_BLOCK_CODEC_FORMAT;
+		format = HDR_BLOCK_CODEC_FORMAT;
 #else
 		if (PIX_SIZE == TCP_PIX_SIZE_F32) {
-			int format = 32;
+			format = 32;
 		}
 		else if (PIX_SIZE == TCP_PIX_SIZE_U16) {
-			int format = 16;
+			format = 16;
 		}
 		else { //TCP_PIX_SIZE_U8
-			int format = 8;
+			format = 8;
 		}
 #endif
 		tcpConnection.send_gpujpeg(
