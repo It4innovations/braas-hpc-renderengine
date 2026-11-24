@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string>
 #include "renderengine_api.h"
+#include "renderengine_data.h"
 
 #    ifdef _WIN32
 
@@ -90,6 +91,17 @@ protected:
 	int g_hdr_codec_profile = 8; // Default to 8 bpp
 #endif
 
+	// Frame protocol (renderengine_frame_header). Declared unconditionally so the class layout
+	// does not depend on compile definitions of the consumer.
+	void* g_lhc_encoder = NULL;        // HalfCodec*
+	void* g_lhc_decoder = NULL;        // HalfCodec*
+	void* g_display_transform = NULL;  // DisplayTransform*
+	char* g_frame_buffer = NULL;       // host staging buffer (pinned when CUDA is available)
+	size_t g_frame_buffer_size = 0;
+	bool g_frame_buffer_pinned = false;
+
+	char* frame_buffer(size_t size);
+
 public:
 	TcpConnection();
 	virtual void write_data_kernelglobal(void* data, size_t size);
@@ -116,6 +128,24 @@ public:
 	virtual void send_gpujpeg(char* dmem, char* pixels, int width, int height, int format);
 	virtual void recv_gpujpeg(char* dmem, char* pixels, int width, int height, int format);
 	virtual void recv_decode(char* dmem, char* pixels, int width, int height, int frame_size);
+
+	// Frame protocol for settings.codec != RENDERENGINE_CODEC_LEGACY (server side).
+	// pixels: half4 RGBA scene linear frame, device or host pointer.
+	// Returns the codec actually used (a fallback is announced in the frame header).
+	virtual int send_frame(const renderengine_stream_settings& settings, char* pixels, int width, int height);
+
+	// Client side. dmem: device output buffer (may be NULL without CUDA), pixels: host output
+	// buffer of width*height*4*pixel_bits/8 bytes, filled when dmem is NULL.
+	// Returns 0 on success, 1 if the frame was skipped (size/format mismatch, error) and
+	// 2 if the temporal reference of the LHC codec was lost (request a key frame).
+	virtual int recv_frame(char* dmem, char* pixels, int width, int height, int pixel_bits,
+		renderengine_frame_header* header);
+
+	// Server side color management for RENDERENGINE_CODEC_JPEG_DISPLAY (see display_transform.h).
+	virtual int set_display_lut(const float* lut, int size, float log2_min, float log2_max);
+
+	// Forget the temporal state of the codecs (new connection).
+	virtual void reset_stream();
 
 	virtual void rgb_to_yuv_i420(
 		unsigned char* destination, unsigned char* source, int tile_h, int tile_w);
@@ -164,7 +194,8 @@ protected:
 		int format,
 		uint8_t* input_image,
 		uint8_t* image_compressed,
-		size_t& image_compressed_size);
+		size_t& image_compressed_size,
+		int quality = -1);
 
 	int gpujpeg_decode(int width,
 		int height,

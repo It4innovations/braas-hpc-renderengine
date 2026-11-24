@@ -24,7 +24,7 @@
 //#endif
 #ifdef WITH_CLIENT_EPOXY
 #	include <epoxy/gl.h>
-#	if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#	if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 #		if defined(__HIP_PLATFORM_AMD__)
 #			include <hip/hip_runtime.h>
 #			include <hip/hip_gl_interop.h>
@@ -34,7 +34,7 @@
 #		endif
 #	endif
 #else
-#	if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#	if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 #		if defined(__HIP_PLATFORM_AMD__)
 #			include <hip/hip_runtime.h>
 #		elif defined(GPUJPEG_USE_SYCL)
@@ -169,6 +169,9 @@ GLuint g_textureId;  // ID of texture
 renderengine_data g_renderengine_data;
 renderengine_data g_renderengine_data_recv;
 BRaaSHPCDataState g_hs_data_state;
+renderengine_frame_header g_frame_header;  // last received frame (non-legacy codecs)
+bool g_pixels_on_device = false;           // where set_pixels() stored the last frame
+size_t g_alloc_pix_size = 0;               // PIX_SIZE the buffers/texture were allocated with
 
 double g_previousTime[3] = { 0, 0, 0 };
 int g_frameCount[3] = { 0, 0, 0 };
@@ -250,7 +253,7 @@ void check_exit()
 {
 }
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 
 // GPU abstraction macros
 #if defined(__HIP_PLATFORM_AMD__)
@@ -268,6 +271,7 @@ void check_exit()
 	#define gpuMemcpy hipMemcpy
 	#define gpuMemcpyHostToDevice hipMemcpyHostToDevice
 	#define gpuMemcpyDeviceToDevice hipMemcpyDeviceToDevice
+	#define gpuMemcpyDeviceToHost hipMemcpyDeviceToHost
 #elif defined(GPUJPEG_USE_SYCL)
 	// For SYCL, use the gpujpeg device compatibility layer
 	// Forward declare the functions we need from gpujpeg
@@ -291,6 +295,7 @@ void check_exit()
 	// Define memory copy kinds as constants (matching gpujpeg_device_compat.h enum values)
 	#define gpuMemcpyHostToDevice 1
 	#define gpuMemcpyDeviceToDevice 3
+	#define gpuMemcpyDeviceToHost 2
 #else
 	#define gpuError_t cudaError_t
 	#define gpuSuccess cudaSuccess
@@ -306,6 +311,7 @@ void check_exit()
 	#define gpuMemcpy cudaMemcpy
 	#define gpuMemcpyHostToDevice cudaMemcpyHostToDevice
 	#define gpuMemcpyDeviceToDevice cudaMemcpyDeviceToDevice
+	#define gpuMemcpyDeviceToHost cudaMemcpyDeviceToHost
 #endif
 
 #define cuda_assert(stmt) \
@@ -355,7 +361,7 @@ void gpu_error_message(const std::string& message)
 
 void cuda_set_device()
 {
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 	cuda_assert(gpuSetDevice(0));
 #endif
 }
@@ -464,14 +470,14 @@ void setup_texture(bool use_gl)
 
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 		cuda_assert(gpuGLRegisterBufferObject(g_bufferId));
 #endif
 		//cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 	}
 #endif
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 	cuda_assert(gpuMalloc(&g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE));	
 	printf("Setup texture %d x %d, Pointer: %zu (Size: %zu)\n", g_renderengine_data.width, g_renderengine_data.height, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE);
 #endif
@@ -485,13 +491,13 @@ void free_texture(bool use_gl)
 	//cuda_assert(cudaGLUnmapBufferObject(g_bufferId));
 
 	if (use_gl) {
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 		cuda_assert(cudaGLUnregisterBufferObject(g_bufferId));
 #endif
 	}
 #endif
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 	printf("Free texture Pointer: %zu\n", (size_t)g_pixels_buf_recv_d);
 	cuda_assert(gpuFree(g_pixels_buf_recv_d));
 #endif	
@@ -532,7 +538,7 @@ void draw_texture_internal(bool use_gl)
 	cuda_set_device();
 #ifdef WITH_CLIENT_EPOXY
 	if (use_gl) {
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 		cuda_assert(cudaGLMapBufferObject((void**)&g_pixels_buf_d, g_bufferId));
 		cuda_assert(cudaMemcpy(g_pixels_buf_d, g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * 4 * PIX_SIZE,
 			cudaMemcpyDeviceToDevice));
@@ -647,7 +653,9 @@ void set_resolution(int width, int height)
 
 void resize_internal(int width, int height, bool use_gl)
 {
-	if (width == g_renderengine_data.width && height == g_renderengine_data.height && g_pixels_buf)
+	// reallocate also when the texel size changed (e.g. another stream codec with the same viewport size)
+	if (width == g_renderengine_data.width && height == g_renderengine_data.height && g_pixels_buf &&
+		g_alloc_pix_size == PIX_SIZE)
 		return;
 
 	cuda_set_device();
@@ -655,7 +663,7 @@ void resize_internal(int width, int height, bool use_gl)
 	if (g_pixels_buf)
 	{		
 		free_texture(use_gl);
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 		cuda_assert(gpuFreeHost(g_pixels_buf));
 #else
 		free(g_pixels_buf);
@@ -665,11 +673,12 @@ void resize_internal(int width, int height, bool use_gl)
 	g_renderengine_data.width = width;
 	g_renderengine_data.height = height;
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 	cuda_assert(gpuHostAlloc((void**)&g_pixels_buf, (size_t)width * height * PIX_SIZE * 4, gpuHostAllocMapped));
 #else
 	g_pixels_buf = (unsigned char*)malloc((size_t)width * height * PIX_SIZE * 4);
 #endif
+	g_alloc_pix_size = PIX_SIZE;
 
 	//int* size = (int*)&g_renderengine_data.width;
 	//g_renderengine_data.width = width;
@@ -683,10 +692,25 @@ void resize(int width, int height)
 }
 
 int recv_pixels_data()
-{  
+{
 	cuda_set_device();
 
-	if (USE_GPUJPEG) {
+	if (g_renderengine_data.stream.codec != RENDERENGINE_CODEC_LEGACY) {
+		char* dmem = NULL;
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
+		dmem = (char*)g_pixels_buf_recv_d;
+#endif
+		const int rc = tcpConnection.recv_frame(dmem, (char*)g_pixels_buf,
+			g_renderengine_data.width, g_renderengine_data.height, (int)PIX_SIZE * 8, &g_frame_header);
+		if (rc == 2) {
+			// lost the temporal reference -> ask the server for a key frame with the next camera update
+			g_renderengine_data.stream.request_keyframe = 1;
+		}
+		else if (rc == 0) {
+			g_renderengine_data.stream.request_keyframe = 0;
+		}
+	}
+	else if (USE_GPUJPEG) {
 		//#ifdef TCP_PIX_SIZE_F32
 		//	int format = 2;
 		//#elif defined(TCP_PIX_SIZE_U16)
@@ -715,7 +739,7 @@ int recv_pixels_data()
 		tcpConnection.recv_data_data((char*)g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4 /*, false*/);
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 		cuda_assert(gpuMemcpy(g_pixels_buf_recv_d, //g_pixels_buf_d,
 			g_pixels_buf,
 			g_renderengine_data.width * g_renderengine_data.height * PIX_SIZE * 4,
@@ -735,10 +759,17 @@ int recv_pixels_data()
 }
 
 int send_pixels_data()
-{  
+{
 	cuda_set_device();
 
-	if (USE_GPUJPEG) {
+	if (g_renderengine_data.stream.codec != RENDERENGINE_CODEC_LEGACY) {
+		// server side of the frame protocol: the frame (set_pixels) has to be half4 scene linear
+		if (PIX_SIZE != TCP_PIX_SIZE_U16)
+			printf("send_pixels_data: codec %d needs half4 pixels (set_pixsize(16))\n", g_renderengine_data.stream.codec);
+		char* src = g_pixels_on_device ? (char*)g_pixels_buf_recv_d : (char*)g_pixels_buf;
+		tcpConnection.send_frame(g_renderengine_data.stream, src, g_renderengine_data.width, g_renderengine_data.height);
+	}
+	else if (USE_GPUJPEG) {
 
 		//#ifdef TCP_PIX_SIZE_F32
 		//	int format = 2;
@@ -1091,6 +1122,17 @@ float get_local_fps()
 void get_pixels(void* pixels)
 {
 	size_t pix_type_size = PIX_SIZE * 4; // sizeof(char) * 4;
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
+	// with CUDA the received frame always ends up in the device buffer (decoders write there,
+	// raw frames are uploaded), while the host buffer may hold compressed data
+	if (g_pixels_buf_recv_d) {
+		cuda_set_device();
+		cuda_assert(gpuMemcpy(pixels, g_pixels_buf_recv_d,
+			(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
+			gpuMemcpyDeviceToHost));
+		return;
+	}
+#endif
 	memcpy(pixels, (char*)g_pixels_buf, g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
 }
 
@@ -1102,22 +1144,25 @@ void set_pixels(void* pixels, bool device)
 
 	if (device) {
 		//printf("Set pixels device to device Pointer: %lld -> %lld (Size: %lld)\n", (size_t)pixels, (size_t)g_pixels_buf_recv_d, (size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size);
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 		cuda_assert(gpuMemcpy(
 			g_pixels_buf_recv_d,
 			pixels,
 			(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
 			gpuMemcpyDeviceToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+		g_pixels_on_device = true;
 #endif
 	}
 	else {
+		g_pixels_on_device = false;
 		if (USE_GPUJPEG) {
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 			cuda_assert(gpuMemcpy(
 				g_pixels_buf_recv_d,
 				pixels,
 				(size_t)g_renderengine_data.width * g_renderengine_data.height * pix_type_size,
 				gpuMemcpyHostToDevice));  // cudaMemcpyDefault gpuMemcpyHostToDevice
+			g_pixels_on_device = true;
 #endif
 		}
 		else {
@@ -1149,5 +1194,74 @@ int get_width() {
 
 int get_height() {
 	return g_renderengine_data.height;
+}
+
+//////////////////////////
+// Stream codecs / color management (frame protocol)
+
+static void copy_name(char* dst, const char* src)
+{
+	memset(dst, 0, RENDERENGINE_STREAM_NAME_LEN);
+	if (src)
+		strncpy(dst, src, RENDERENGINE_STREAM_NAME_LEN - 1);
+}
+
+int set_stream_codec(int codec, int quality)
+{
+	if (codec < RENDERENGINE_CODEC_LEGACY || codec > RENDERENGINE_CODEC_JPEG_DISPLAY) {
+		printf("set_stream_codec: unknown codec %d\n", codec);
+		return -1;
+	}
+#if !defined(WITH_CLIENT_LHC)
+	if (codec == RENDERENGINE_CODEC_LHC) {
+		printf("set_stream_codec: not compiled with WITH_CLIENT_LHC\n");
+		return -1;
+	}
+#endif
+#if !defined(WITH_CLIENT_GPUJPEG)
+	if (codec == RENDERENGINE_CODEC_JPEG_DISPLAY) {
+		printf("set_stream_codec: not compiled with WITH_CLIENT_GPUJPEG\n");
+		return -1;
+	}
+#endif
+
+	g_renderengine_data.stream.codec = codec;
+	g_renderengine_data.stream.quality = quality;
+	g_renderengine_data.stream.request_keyframe = 0;
+	g_frame_header = renderengine_frame_header();
+
+	// texture format of the decoded frames; takes effect with the next client_init()/resize
+	if (codec == RENDERENGINE_CODEC_RAW_HALF || codec == RENDERENGINE_CODEC_LHC)
+		PIX_SIZE = TCP_PIX_SIZE_U16;
+	else if (codec == RENDERENGINE_CODEC_JPEG_DISPLAY)
+		PIX_SIZE = TCP_PIX_SIZE_U8;
+
+	return 0;
+}
+
+int get_stream_codec()
+{
+	return g_renderengine_data.stream.codec;
+}
+
+void set_color_management(const char* display, const char* view, const char* look, float exposure, float gamma)
+{
+	copy_name(g_renderengine_data.stream.display, display);
+	copy_name(g_renderengine_data.stream.view, view);
+	copy_name(g_renderengine_data.stream.look, look);
+	g_renderengine_data.stream.exposure = exposure;
+	g_renderengine_data.stream.gamma = gamma;
+}
+
+int is_display_referred()
+{
+	if (g_renderengine_data.stream.codec == RENDERENGINE_CODEC_LEGACY)
+		return 0;
+	return g_frame_header.display_referred;
+}
+
+unsigned long long get_last_frame_size()
+{
+	return g_frame_header.payload_size;
 }
 

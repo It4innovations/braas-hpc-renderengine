@@ -47,6 +47,34 @@ struct alignas(16) renderengine_cam {
 	int _pad[2];
 };
 
+// Pixel stream codecs requested by the client (renderengine_stream_settings::codec).
+// LEGACY keeps the original wire format (raw pixels or gpujpeg without a frame header, chosen by
+// set_pixsize/enable_gpujpeg on both sides). All other codecs send a renderengine_frame_header
+// in front of every frame.
+#define RENDERENGINE_CODEC_LEGACY 0
+#define RENDERENGINE_CODEC_RAW_HALF 1      // half4 scene linear, uncompressed
+#define RENDERENGINE_CODEC_LHC 2           // half4 scene linear, LHC GPU codec (lossless / near lossless)
+#define RENDERENGINE_CODEC_JPEG_DISPLAY 3  // server side color management -> RGBA8 display referred -> GPUJPEG
+
+#define RENDERENGINE_STREAM_NAME_LEN 64
+
+// Sent by the client with every camera update. Not part of the camera change detection on the
+// server (changing e.g. the exposure must not restart the accumulation).
+struct alignas(16) renderengine_stream_settings {
+	int codec = RENDERENGINE_CODEC_LEGACY;
+	int quality = 0;           // LHC: mantissa bits 1..10 (10 = lossless), JPEG: 1..100, 0 = default
+	int request_keyframe = 0;  // client lost the temporal reference of the LHC codec
+	int _pad0 = 0;
+
+	// Blender scene color management (used by RENDERENGINE_CODEC_JPEG_DISPLAY)
+	float exposure = 0.0f;
+	float gamma = 1.0f;
+	int _pad1[2] = {};
+	char display[RENDERENGINE_STREAM_NAME_LEN] = {};  // scene.display_settings.display_device
+	char view[RENDERENGINE_STREAM_NAME_LEN] = {};     // scene.view_settings.view_transform
+	char look[RENDERENGINE_STREAM_NAME_LEN] = {};     // scene.view_settings.look ("None" = no look)
+};
+
 struct alignas(16) renderengine_data {
 	int magic_number = 999; // ack
 
@@ -57,6 +85,22 @@ struct alignas(16) renderengine_data {
 	int frame = 0;
 
 	renderengine_cam cam = {};
+
+	// keep last: the server compares only the bytes before this member to detect camera changes
+	renderengine_stream_settings stream = {};
+};
+
+#define RENDERENGINE_FRAME_MAGIC 0x4D415246  // "FRAM"
+
+// Sent by the server in front of every frame when a non-legacy codec is used.
+struct alignas(16) renderengine_frame_header {
+	int magic = RENDERENGINE_FRAME_MAGIC;
+	int codec = RENDERENGINE_CODEC_LEGACY;
+	int width = 0;
+	int height = 0;
+	unsigned long long payload_size = 0;  // bytes following the header
+	int pixel_bits = 16;                  // decoded texel channel size: 8 (RGBA8) or 16 (RGBA half)
+	int display_referred = 0;             // 1: already color managed, the client must not apply OCIO
 };
 
 //typedef struct BRaaSHPCDataRender {

@@ -353,6 +353,35 @@ finally:
 | `set_pixsize(size)` | Set pixel size (1=U8, 2=U16, 4=F32) |
 | `get_pixsize()` | Get current pixel size |
 
+### Stream Codecs
+
+The client chooses how the server encodes the frames with `set_stream_codec(codec, quality)`
+(call before `client_init`). The choice travels with every camera update (`renderengine_data.stream`),
+so the server follows the client. Every non-legacy frame starts with a `renderengine_frame_header`.
+
+| Codec | Value | Data | Quality parameter |
+|-------|-------|------|-------------------|
+| `CODEC_LEGACY` | 0 | original protocol (`set_pixsize` / `enable_gpujpeg` on both sides) | - |
+| `CODEC_RAW_HALF` | 1 | half4 scene linear, uncompressed | - |
+| `CODEC_LHC` | 2 | half4 scene linear, LHC GPU codec | mantissa bits 1..10 (10 = lossless) |
+| `CODEC_JPEG_DISPLAY` | 3 | server side color management + GPUJPEG, display referred | JPEG quality 1..100 |
+
+**LHC (linear half codec, `src/half_codec.cu`)** quantizes on the half float bit pattern (bounded
+*relative* error 2^-(bits+1), 10 bits = bit exact), decorrelates G, R-G, B-G, predicts every
+32-pixel row group with the best of five predictors (up, left, planar, smoothed up, temporal) and
+bit-plane packs the residuals with `__ballot_sync`. Encoder and decoder keep the previous frame on the
+GPU, so a converging (accumulating) image gets cheaper every frame. 1080p encode/decode takes about
+0.2-0.3 ms on an RTX PRO 6000 Blackwell. Test/benchmark: `-DWITH_LHC_TESTS=ON` -> `test_half_codec`.
+
+**JPEG_DISPLAY** reproduces Blender's viewport color management on the server: the client sends
+`set_color_management(display, view, look, exposure, gamma)`, the renderer bakes the OCIO
+look + view + display transform into a 3D LUT (`TcpConnection::set_display_lut`, see
+`src/display_transform.h`) and the library applies exposure -> LUT -> gamma on the GPU before GPUJPEG.
+`is_display_referred()` tells the client to draw the texture without OCIO.
+
+Both are enabled by `WITH_CLIENT_LHC` (CUDA only; on by default when GPUJPEG uses CUDA). Client and
+server must be built from the same version (`renderengine_data` grew by the stream settings).
+
 ### Statistics
 
 | Function | Description |
