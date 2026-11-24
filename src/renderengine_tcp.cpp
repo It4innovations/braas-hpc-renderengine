@@ -36,6 +36,12 @@
 #  include <libgpujpeg/gpujpeg_encoder.h>
 #endif
 
+#ifdef WITH_CLIENT_LHC
+#  include <cuda_runtime.h>
+#  include "half_codec.h"
+#  include "display_transform.h"
+#endif
+
 // #include <omp.h>
 #define DEBUG_PRINT(size) //printf("%s: %lld\n", __FUNCTION__, size);
 
@@ -471,6 +477,8 @@ void TcpConnection::client_close()
 
 	g_connection_error = 0;
 	g_port_offset = -1;
+
+	reset_stream();
 }
 
 void TcpConnection::server_close()
@@ -489,6 +497,8 @@ void TcpConnection::server_close()
 
 	g_connection_error = 0;
 	g_port_offset = -1;
+
+	reset_stream();
 
 	//close_wsa();
 }
@@ -591,6 +601,9 @@ void TcpConnection::init_sockets_data(const char* server, int port, bool is_serv
 
 	if (g_client_id_data[g_port_offset] == -1) {
 		init_wsa();
+
+		// new connection -> the peer starts without any codec history
+		reset_stream();
 
 		//#  if (!defined(WITH_SOCKET_ONLY_DATA) && !defined(BLENDER_CLIENT) && \
 		//       !defined(WITH_CLIENT_MPI_VRCLIENT)) || \
@@ -1136,7 +1149,7 @@ void TcpConnection::yuv_i420_to_rgb_half(
 	}
 }
 
-#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC)
+#if defined(WITH_CLIENT_GPUJPEG) || defined(WITH_CLIENT_HDR_BLOCK_CODEC) || defined(WITH_CLIENT_LHC)
 
 //#define gpujpeg_decoder_output_set_custom_cuda
 #if defined(__HIP_PLATFORM_AMD__)
@@ -1180,7 +1193,8 @@ int TcpConnection::gpujpeg_encode(int width,
 	int format,
 	uint8_t* input_image,
 	uint8_t* image_compressed,
-	size_t& image_compressed_size)
+	size_t& image_compressed_size,
+	int quality)
 {
 	// set default encode parametrs, after calling, parameters can be tuned (eg. quality)
 	struct gpujpeg_parameters param;
@@ -1192,8 +1206,9 @@ int TcpConnection::gpujpeg_encode(int width,
 		if (compressed_quality_env != NULL) {
 			g_compressed_quality = atoi(compressed_quality_env);
 		}
-		param.quality = g_compressed_quality;
 	}
+	// note: param is re-initialized on every call, so the quality has to be set every time
+	param.quality = (quality > 0 && quality <= 100) ? quality : g_compressed_quality;
 
 	const char* gpujpeg_verbose_env = getenv("GPUJPEG_VERBOSE");
 	if (gpujpeg_verbose_env != NULL) {
@@ -1603,6 +1618,237 @@ void TcpConnection::recv_decode(char* dmem, char* pixels, int width, int height,
 	// HDR codec decode with default format (8 bpp)
 	hdr_codec_decode(width, height, 8, (uint8_t*)dmem, (uint8_t*)pixels, frame_size);
 #endif
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Frame protocol: renderengine_frame_header + payload
+
+char* TcpConnection::frame_buffer(size_t size)
+{
+	if (g_frame_buffer && g_frame_buffer_size >= size)
+		return g_frame_buffer;
+
+	if (g_frame_buffer) {
+#ifdef WITH_CLIENT_LHC
+		if (g_frame_buffer_pinned)
+			cudaFreeHost(g_frame_buffer);
+		else
+#endif
+			free(g_frame_buffer);
+	}
+	g_frame_buffer = NULL;
+	g_frame_buffer_size = 0;
+	g_frame_buffer_pinned = false;
+
+	size_t alloc = size + size / 8 + 4096;
+#ifdef WITH_CLIENT_LHC
+	if (cudaHostAlloc((void**)&g_frame_buffer, alloc, cudaHostAllocDefault) == cudaSuccess) {
+		g_frame_buffer_pinned = true;
+	}
+	else {
+		cudaGetLastError();
+		g_frame_buffer = NULL;
+	}
+#endif
+	if (g_frame_buffer == NULL)
+		g_frame_buffer = (char*)malloc(alloc);
+
+	if (g_frame_buffer)
+		g_frame_buffer_size = alloc;
+	return g_frame_buffer;
+}
+
+void TcpConnection::reset_stream()
+{
+#ifdef WITH_CLIENT_LHC
+	if (g_lhc_encoder)
+		((HalfCodec*)g_lhc_encoder)->reset();
+	if (g_lhc_decoder)
+		((HalfCodec*)g_lhc_decoder)->reset();
+#endif
+}
+
+int TcpConnection::set_display_lut(const float* lut, int size, float log2_min, float log2_max)
+{
+#ifdef WITH_CLIENT_LHC
+	if (g_display_transform == NULL)
+		g_display_transform = new DisplayTransform();
+	return ((DisplayTransform*)g_display_transform)->set_lut(lut, size, log2_min, log2_max);
+#else
+	printf("set_display_lut: not compiled with WITH_CLIENT_LHC (CUDA)\n");
+	return 1;
+#endif
+}
+
+int TcpConnection::send_frame(const renderengine_stream_settings& settings, char* pixels, int width, int height)
+{
+	renderengine_frame_header header;
+	header.codec = settings.codec;
+	header.width = width;
+	header.height = height;
+	header.pixel_bits = 16;
+	header.display_referred = 0;
+
+	const size_t raw_half_bytes = (size_t)width * height * 8;
+	const char* payload = NULL;
+	size_t payload_size = 0;
+
+#ifdef WITH_CLIENT_LHC
+	const bool on_device = is_device_ptr(pixels);
+#else
+	const bool on_device = false;
+#endif
+
+	if (header.codec == RENDERENGINE_CODEC_LHC) {
+#ifdef WITH_CLIENT_LHC
+		if (g_lhc_encoder == NULL)
+			g_lhc_encoder = new HalfCodec();
+		HalfCodec* enc = (HalfCodec*)g_lhc_encoder;
+		if (settings.request_keyframe)
+			enc->reset();
+		const int mbits = settings.quality > 0 ? settings.quality : LHC_MANTISSA_BITS_DEFAULT;
+		const uint8_t* stream = NULL;
+		if (enc->encode(pixels, width, height, mbits, &stream, &payload_size) == 0) {
+			payload = (const char*)stream;
+		}
+		else {
+			printf("send_frame: LHC encode failed, sending raw half\n");
+			enc->reset();
+			header.codec = RENDERENGINE_CODEC_RAW_HALF;
+		}
+#else
+		printf("send_frame: LHC codec not compiled in, sending raw half\n");
+		header.codec = RENDERENGINE_CODEC_RAW_HALF;
+#endif
+	}
+	else if (header.codec == RENDERENGINE_CODEC_JPEG_DISPLAY) {
+#if defined(WITH_CLIENT_LHC) && defined(WITH_CLIENT_GPUJPEG)
+		if (g_display_transform == NULL)
+			g_display_transform = new DisplayTransform();
+		void* d_rgba8 = NULL;
+		size_t jpeg_size = 0;
+		if (((DisplayTransform*)g_display_transform)->apply(pixels, width, height, settings.exposure, settings.gamma, &d_rgba8) == 0 &&
+			gpujpeg_encode(width, height, 8, (uint8_t*)d_rgba8, NULL, jpeg_size, settings.quality) == 0) {
+			payload = (const char*)g_image_compressed;
+			payload_size = jpeg_size;
+			header.pixel_bits = 8;
+			header.display_referred = 1;
+		}
+		else {
+			printf("send_frame: color managed JPEG failed, sending raw half\n");
+			header.codec = RENDERENGINE_CODEC_RAW_HALF;
+		}
+#else
+		printf("send_frame: JPEG_DISPLAY needs WITH_CLIENT_GPUJPEG and CUDA, sending raw half\n");
+		header.codec = RENDERENGINE_CODEC_RAW_HALF;
+#endif
+	}
+	else if (header.codec != RENDERENGINE_CODEC_RAW_HALF) {
+		printf("send_frame: unknown codec %d, sending raw half\n", header.codec);
+		header.codec = RENDERENGINE_CODEC_RAW_HALF;
+	}
+
+	if (header.codec == RENDERENGINE_CODEC_RAW_HALF) {
+		payload_size = raw_half_bytes;
+		if (on_device) {
+#ifdef WITH_CLIENT_LHC
+			char* buf = frame_buffer(raw_half_bytes);
+			if (buf == NULL || cudaMemcpy(buf, pixels, raw_half_bytes, cudaMemcpyDeviceToHost) != cudaSuccess) {
+				printf("send_frame: cannot download the frame\n");
+				g_connection_error = 1;
+				return header.codec;
+			}
+			payload = buf;
+#endif
+		}
+		else {
+			payload = pixels;
+		}
+	}
+
+	header.payload_size = payload_size;
+	send_data_data((char*)&header, sizeof(header));
+	if (payload_size > 0)
+		send_data_data((char*)payload, payload_size);
+
+	return header.codec;
+}
+
+int TcpConnection::recv_frame(char* dmem, char* pixels, int width, int height, int pixel_bits,
+	renderengine_frame_header* out_header)
+{
+	renderengine_frame_header header;
+	recv_data_data((char*)&header, sizeof(header));
+	if (is_error())
+		return 1;
+
+	if (header.magic != RENDERENGINE_FRAME_MAGIC) {
+		printf("recv_frame: wrong frame magic 0x%08x - protocol mismatch between client and server\n", header.magic);
+		g_connection_error = 1;
+		return 1;
+	}
+
+	char* buf = frame_buffer((size_t)header.payload_size);
+	if (buf == NULL) {
+		printf("recv_frame: cannot allocate %llu bytes\n", header.payload_size);
+		g_connection_error = 1;
+		return 1;
+	}
+	recv_data_data(buf, (size_t)header.payload_size);
+	if (is_error())
+		return 1;
+
+	if (out_header)
+		*out_header = header;
+
+	if (header.width != width || header.height != height || header.pixel_bits != pixel_bits) {
+		// e.g. the viewport was resized meanwhile - the next frame will match
+		printf("recv_frame: skipping frame %dx%d/%d bit (expected %dx%d/%d bit)\n",
+			header.width, header.height, header.pixel_bits, width, height, pixel_bits);
+		return 1;
+	}
+
+	const size_t out_bytes = (size_t)width * height * 4 * (pixel_bits / 8);
+	void* out = dmem ? (void*)dmem : (void*)pixels;
+
+	switch (header.codec) {
+	case RENDERENGINE_CODEC_RAW_HALF:
+		if (header.payload_size != out_bytes)
+			return 1;
+#ifdef WITH_CLIENT_LHC
+		if (dmem) {
+			if (cudaMemcpy(dmem, buf, out_bytes, cudaMemcpyHostToDevice) != cudaSuccess)
+				return 1;
+			return 0;
+		}
+#endif
+		memcpy(pixels, buf, out_bytes);
+		return 0;
+
+	case RENDERENGINE_CODEC_LHC:
+#ifdef WITH_CLIENT_LHC
+		if (g_lhc_decoder == NULL)
+			g_lhc_decoder = new HalfCodec();
+		if (((HalfCodec*)g_lhc_decoder)->decode((const uint8_t*)buf, (size_t)header.payload_size, out, width, height) != 0)
+			return 2;
+		return 0;
+#else
+		printf("recv_frame: LHC codec not compiled in\n");
+		return 1;
+#endif
+
+	case RENDERENGINE_CODEC_JPEG_DISPLAY:
+#ifdef WITH_CLIENT_GPUJPEG
+		return gpujpeg_decode(width, height, 8, (uint8_t*)out, (uint8_t*)buf, (size_t)header.payload_size) == 0 ? 0 : 1;
+#else
+		printf("recv_frame: GPUJPEG not compiled in\n");
+		return 1;
+#endif
+
+	default:
+		printf("recv_frame: unknown codec %d\n", header.codec);
+		return 1;
+	}
 }
 
 void TcpConnection::set_port_offset(int offset)

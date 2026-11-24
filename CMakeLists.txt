@@ -26,8 +26,18 @@ option(WITH_CLIENT_EPOXY "Enable EPOXY" OFF)
 option(GPUJPEG_USE_HIP "Build GPUJPEG with HIP backend for AMD GPUs" OFF)
 option(GPUJPEG_USE_SYCL "Build GPUJPEG with SYCL backend for Intel/other GPUs" OFF)
 
+# LHC linear half codec + server side color management (CUDA only). On by default whenever
+# GPUJPEG is built with the CUDA backend (CUDA is required anyway).
+if(WITH_CLIENT_GPUJPEG AND NOT GPUJPEG_USE_HIP AND NOT GPUJPEG_USE_SYCL)
+    set(_WITH_CLIENT_LHC_DEFAULT ON)
+else()
+    set(_WITH_CLIENT_LHC_DEFAULT OFF)
+endif()
+option(WITH_CLIENT_LHC "Enable the LHC linear half GPU codec and server side color management (CUDA)" ${_WITH_CLIENT_LHC_DEFAULT})
+option(WITH_LHC_TESTS "Build the LHC codec round-trip test/benchmark" OFF)
+
 # Enable CUDA language if needed
-if(WITH_CLIENT_HDR_BLOCK_CODEC OR (WITH_CLIENT_GPUJPEG AND NOT GPUJPEG_USE_HIP AND NOT GPUJPEG_USE_SYCL))
+if(WITH_CLIENT_HDR_BLOCK_CODEC OR WITH_CLIENT_LHC OR (WITH_CLIENT_GPUJPEG AND NOT GPUJPEG_USE_HIP AND NOT GPUJPEG_USE_SYCL))
     project(braas_hpc_renderengine LANGUAGES CXX CUDA)
 else()
     project(braas_hpc_renderengine LANGUAGES CXX)

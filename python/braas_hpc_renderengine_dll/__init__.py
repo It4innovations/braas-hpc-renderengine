@@ -117,6 +117,21 @@ _renderengine_dll.get_gpu_buffer.restype = c_ulong
 _renderengine_dll.get_width.restype = c_int32
 _renderengine_dll.get_height.restype = c_int32
 
+# Stream codecs / color management (optional - older libraries do not export them)
+CODEC_LEGACY = 0        # original protocol (raw pixels or GPUJPEG, see set_pixsize/enable_gpujpeg)
+CODEC_RAW_HALF = 1      # half4 scene linear, uncompressed
+CODEC_LHC = 2           # half4 scene linear, LHC GPU codec (lossless / near lossless)
+CODEC_JPEG_DISPLAY = 3  # server side color management + GPUJPEG (display referred)
+
+_has_stream_api = hasattr(_renderengine_dll, "set_stream_codec")
+if _has_stream_api:
+    _renderengine_dll.set_stream_codec.argtypes = [c_int32, c_int32]
+    _renderengine_dll.set_stream_codec.restype = c_int32
+    _renderengine_dll.get_stream_codec.restype = c_int32
+    _renderengine_dll.set_color_management.argtypes = [c_char_p, c_char_p, c_char_p, c_float, c_float]
+    _renderengine_dll.is_display_referred.restype = c_int32
+    _renderengine_dll.get_last_frame_size.restype = ctypes.c_ulonglong
+
 ####################################################################################################
 # Public API - Expose the DLL functions
 
@@ -186,6 +201,29 @@ get_gpu_buffer = _renderengine_dll.get_gpu_buffer
 get_width = _renderengine_dll.get_width
 get_height = _renderengine_dll.get_height
 
+# Stream codecs / color management
+def has_stream_api():
+    return _has_stream_api
+
+def set_stream_codec(codec, quality=0):
+    if not _has_stream_api:
+        return -1 if codec != CODEC_LEGACY else 0
+    return _renderengine_dll.set_stream_codec(int(codec), int(quality))
+
+def get_stream_codec():
+    return _renderengine_dll.get_stream_codec() if _has_stream_api else CODEC_LEGACY
+
+def set_color_management(display, view, look, exposure, gamma):
+    if _has_stream_api:
+        _renderengine_dll.set_color_management(str(display).encode(), str(view).encode(), str(look).encode(),
+                                               float(exposure), float(gamma))
+
+def is_display_referred():
+    return _renderengine_dll.is_display_referred() if _has_stream_api else 0
+
+def get_last_frame_size():
+    return _renderengine_dll.get_last_frame_size() if _has_stream_api else 0
+
 ####################################################################################################
 # Module exports
 __all__ = [
@@ -239,5 +277,16 @@ __all__ = [
     # Resolution operations
     'get_width',
     'get_height',
+    # Stream codecs / color management
+    'CODEC_LEGACY',
+    'CODEC_RAW_HALF',
+    'CODEC_LHC',
+    'CODEC_JPEG_DISPLAY',
+    'has_stream_api',
+    'set_stream_codec',
+    'get_stream_codec',
+    'set_color_management',
+    'is_display_referred',
+    'get_last_frame_size',
 ]
 

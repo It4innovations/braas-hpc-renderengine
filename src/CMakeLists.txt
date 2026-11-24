@@ -82,6 +82,17 @@ if(WITH_CLIENT_HDR_BLOCK_CODEC)
 	list(APPEND SRC hdr_block_codec.cu)
 endif()
 
+if(WITH_CLIENT_LHC)
+	if(GPUJPEG_USE_HIP OR GPUJPEG_USE_SYCL)
+		message(FATAL_ERROR "WITH_CLIENT_LHC requires CUDA (not available with the HIP/SYCL GPUJPEG backend)")
+	endif()
+	add_definitions(-DWITH_CLIENT_LHC)
+	find_package(CUDAToolkit REQUIRED)
+	list(APPEND INC ${CUDAToolkit_INCLUDE_DIRS})
+	list(APPEND SRC half_codec.cu display_transform.cu)
+	set_source_files_properties(half_codec.cu display_transform.cu PROPERTIES LANGUAGE CUDA)
+endif()
+
 set(SRC_HEADERS
     renderengine_api.h
     renderengine_data.h
@@ -91,6 +102,10 @@ set(SRC_HEADERS
 
 if(WITH_CLIENT_HDR_BLOCK_CODEC)
 	list(APPEND SRC_HEADERS hdr_block_codec.h)
+endif()
+
+if(WITH_CLIENT_LHC)
+	list(APPEND SRC_HEADERS half_codec.h display_transform.h)
 endif()
 
 include_directories(${INC})
@@ -145,6 +160,18 @@ if(WITH_CLIENT_HDR_BLOCK_CODEC)
 	)
 endif()
 
+if(WITH_CLIENT_LHC)
+	target_link_libraries(braas_hpc_renderengine CUDA::cudart_static)
+
+	if(WITH_LHC_TESTS)
+		add_executable(test_half_codec ../tests/test_half_codec.cu half_codec.cu)
+		set_source_files_properties(../tests/test_half_codec.cu PROPERTIES LANGUAGE CUDA)
+		target_include_directories(test_half_codec PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+		target_link_libraries(test_half_codec CUDA::cudart_static)
+		install(TARGETS test_half_codec RUNTIME DESTINATION bin)
+	endif()
+endif()
+
 target_include_directories(braas_hpc_renderengine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
@@ -163,6 +190,10 @@ endif()
 
 if(WITH_CLIENT_HDR_BLOCK_CODEC)
     target_compile_definitions(braas_hpc_renderengine PUBLIC WITH_CLIENT_HDR_BLOCK_CODEC)
+endif()
+
+if(WITH_CLIENT_LHC)
+    target_compile_definitions(braas_hpc_renderengine PUBLIC WITH_CLIENT_LHC)
 endif()
 
 if(WITH_CLIENT_EPOXY)

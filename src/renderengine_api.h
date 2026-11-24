@@ -126,6 +126,22 @@ extern "C"
 
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_width();
 	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_height();
+
+	// Pixel stream codec requested from the server (RENDERENGINE_CODEC_* in renderengine_data.h).
+	// quality: LHC mantissa bits 1..10 (10 = lossless), JPEG 1..100, 0 = default.
+	// Sets the texture format too, call before client_init(). Returns 0 on success.
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD set_stream_codec(int codec, int quality);
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD get_stream_codec();
+
+	// Blender color management applied by the server for RENDERENGINE_CODEC_JPEG_DISPLAY.
+	BRAAS_HPC_EXPORT_DLL void BRAAS_HPC_EXPORT_STD set_color_management(const char* display,
+		const char* view, const char* look, float exposure, float gamma);
+
+	// 1 if the last received frame is already display referred (draw it without OCIO).
+	BRAAS_HPC_EXPORT_DLL int BRAAS_HPC_EXPORT_STD is_display_referred();
+
+	// Compressed size of the last received frame in bytes (non-legacy codecs).
+	BRAAS_HPC_EXPORT_DLL unsigned long long BRAAS_HPC_EXPORT_STD get_last_frame_size();
 	
 
 #ifdef __cplusplus
